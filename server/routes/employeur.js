@@ -38,7 +38,7 @@ router.post('/inscription', async (req, res) => {
 
     await connexion.commit();
     res.status(201).json({
-      message: 'Inscription envoyée ! Ton compte entreprise sera activé après vérification par Activa Assurance.'
+      message: 'Inscription envoyée ! Ton compte entreprise sera activé après vérification par l\'APRJ.'
     });
   } catch (e) {
     await connexion.rollback();
@@ -58,7 +58,7 @@ router.post('/demandes', verifierToken, autoriserRoles('employeur'), async (req,
   try {
     const [empRows] = await pool.query('SELECT id, is_valide FROM employeurs WHERE user_id = ?', [req.utilisateur.id]);
     if (!empRows.length) return res.status(404).json({ erreur: 'Profil employeur introuvable.' });
-    if (!empRows[0].is_valide) return res.status(403).json({ erreur: 'Compte en attente de validation par Activa Assurance.' });
+    if (!empRows[0].is_valide) return res.status(403).json({ erreur: 'Compte en attente de validation par l\'APRJ.' });
 
     const [result] = await pool.query(
       `INSERT INTO demandes (employeur_id, poste, domaine, niveau_etude_requis, qualifications, description, nombre_postes)

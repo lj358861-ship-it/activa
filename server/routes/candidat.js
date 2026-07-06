@@ -50,7 +50,7 @@ router.post(
 
       await connexion.commit();
 
-      // Notification WhatsApp vers Activa Assurance (ne bloque pas la réponse si ça échoue)
+      // Notification WhatsApp vers l'APRJ (ne bloque pas la réponse si ça échoue)
       const cvUrl = cvPath ? `${process.env.PUBLIC_BASE_URL || ''}/uploads/${cvPath}` : null;
       const resultatWhatsapp = await envoyerNotificationCandidature({
         nomComplet: nom_complet,

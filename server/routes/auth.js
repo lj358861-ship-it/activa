@@ -25,7 +25,7 @@ router.post('/connexion', async (req, res) => {
     if (utilisateur.role === 'employeur') {
       const [empRows] = await pool.query('SELECT is_valide FROM employeurs WHERE user_id = ?', [utilisateur.id]);
       if (empRows.length && !empRows[0].is_valide) {
-        return res.status(403).json({ erreur: 'Ton compte entreprise est en attente de vérification par Activa Assurance.' });
+        return res.status(403).json({ erreur: 'Ton compte entreprise est en attente de vérification par l\'APRJ.' });
       }
     }
 

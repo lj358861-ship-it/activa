@@ -51,6 +51,31 @@ function afficherMessage(conteneur, texte, type = 'erreur') {
   conteneur.innerHTML = `<div class="message message-${type}">${texte}</div>`;
 }
 
+/* ===== Menu mobile (burger) : ouverture/fermeture + fermeture auto ===== */
+(function () {
+  const bouton = document.getElementById('boutonBurger');
+  const panneau = document.getElementById('menuMobile');
+  if (!bouton || !panneau) return;
+
+  function basculer(ouvrir) {
+    const doitOuvrir = ouvrir !== undefined ? ouvrir : !panneau.classList.contains('ouvert');
+    panneau.classList.toggle('ouvert', doitOuvrir);
+    bouton.classList.toggle('ouvert', doitOuvrir);
+    bouton.setAttribute('aria-expanded', String(doitOuvrir));
+  }
+
+  bouton.addEventListener('click', () => basculer());
+
+  // Ferme le menu si on clique un lien à l'intérieur, ou en dehors du menu
+  panneau.querySelectorAll('a').forEach((lien) => lien.addEventListener('click', () => basculer(false)));
+  document.addEventListener('click', (e) => {
+    if (panneau.classList.contains('ouvert') && !panneau.contains(e.target) && !bouton.contains(e.target)) {
+      basculer(false);
+    }
+  });
+  window.addEventListener('resize', () => { if (window.innerWidth > 860) basculer(false); });
+})();
+
 /* ===== Finitions visuelles : en-tête au scroll + animations d'apparition ===== */
 (function () {
   const entete = document.querySelector('.entete');

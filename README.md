@@ -4,10 +4,10 @@ Plateforme de recrutement avec préparation à l'emploi (formation + entretien e
 
 ## Identité visuelle
 
-- Logo retouché (nettoyage du fond, contraste et netteté améliorés, sans modification du design) dans `public/img/logo.png` (version complète) et `public/img/logo-embleme.png` (emblème seul, utilisé en en-tête et favicon).
-- Favicon et icône iOS générés automatiquement à partir du logo (`public/img/favicon.png`, `public/img/apple-touch-icon.png`).
+- Logo retouché (nettoyage du fond, contraste et netteté améliorés, sans modification du design) dans `public/logo.png` (version complète) et `public/logo-embleme.png` (emblème seul, utilisé en en-tête et favicon). Les images vivent directement à la racine de `public/` (pas de sous-dossier `img/`).
+- Favicon et icône iOS générés automatiquement à partir du logo (`public/favicon.png`, `public/apple-touch-icon.png`).
 - **Animation de lancement** : à la première visite (par session navigateur), le logo apparaît en fondu/zoom sur fond marine avant de laisser place au site. Elle ne se rejoue pas tant que la session du navigateur reste active (`sessionStorage`).
-- Remplace `public/img/logo.png` et `logo-embleme.png` par une version encore plus soignée (ex: fournie par un graphiste) si besoin — aucun autre fichier à modifier, ils sont référencés partout par ce chemin.
+- Remplace `public/logo.png` et `public/logo-embleme.png` par une version encore plus soignée (ex: fournie par un graphiste) si besoin — aucun autre fichier à modifier, ils sont référencés partout par ce chemin `/logo.png` etc.
 
 ## Fonctionnement
 

@@ -1,4 +1,4 @@
--- Base de données : Activa Recrutement
+-- Base de données : APRJ
 -- Compatible MySQL 8+ (Railway MySQL plugin)
 
 CREATE DATABASE IF NOT EXISTS activa_recrutement CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -72,6 +72,69 @@ CREATE TABLE IF NOT EXISTS mises_en_relation (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (demande_id) REFERENCES demandes(id) ON DELETE CASCADE,
   FOREIGN KEY (candidat_id) REFERENCES candidats(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Services et activités proposés (recrutement, formation, séminaires, festivals, etc.)
+CREATE TABLE IF NOT EXISTS services (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  titre VARCHAR(150) NOT NULL,
+  description TEXT,
+  icone VARCHAR(10) DEFAULT '📌',
+  ordre INT DEFAULT 0,
+  actif BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- Événements : séminaires, festivals, formations, journées portes ouvertes...
+CREATE TABLE IF NOT EXISTS evenements (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  type ENUM('seminaire', 'festival', 'formation', 'autre') DEFAULT 'autre',
+  titre VARCHAR(150) NOT NULL,
+  description TEXT,
+  lieu VARCHAR(150),
+  date_debut DATE,
+  date_fin DATE,
+  image_path VARCHAR(255),
+  actif BOOLEAN DEFAULT TRUE,
+  ordre INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- Collaborateurs (équipe, partenaires mis en avant)
+CREATE TABLE IF NOT EXISTS collaborateurs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nom VARCHAR(150) NOT NULL,
+  poste VARCHAR(150),
+  bio TEXT,
+  photo_path VARCHAR(255),
+  ordre INT DEFAULT 0,
+  actif BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- Messages reçus depuis le formulaire de contact
+CREATE TABLE IF NOT EXISTS messages_contact (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nom VARCHAR(150) NOT NULL,
+  email VARCHAR(190) NOT NULL,
+  telephone VARCHAR(30),
+  sujet VARCHAR(200),
+  message TEXT NOT NULL,
+  lu BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- Images + slogans défilants (carrousel) par page du site
+-- page_cle : 'accueil', 'services', 'collaborateurs', 'contact', 'candidat', 'employeur'
+CREATE TABLE IF NOT EXISTS contenu_hero (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  page_cle VARCHAR(50) NOT NULL,
+  image_path VARCHAR(255),
+  slogan VARCHAR(255) NOT NULL,
+  sous_texte VARCHAR(255),
+  ordre INT DEFAULT 0,
+  actif BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
 -- Compte admin par défaut (mot de passe à changer immédiatement après déploiement)

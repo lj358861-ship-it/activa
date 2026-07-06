@@ -8,6 +8,8 @@ const candidatRoutes = require('./routes/candidat');
 const employeurRoutes = require('./routes/employeur');
 const rechercheRoutes = require('./routes/recherche');
 const adminRoutes = require('./routes/admin');
+const contenuPublicRoutes = require('./routes/contenu-public');
+const contactRoutes = require('./routes/contact');
 
 const app = express();
 
@@ -24,6 +26,8 @@ app.use('/api/candidats', candidatRoutes);
 app.use('/api/employeurs', employeurRoutes);
 app.use('/api/recherche', rechercheRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api', contenuPublicRoutes);
+app.use('/api/contact', contactRoutes);
 
 // Frontend statique
 app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -41,5 +45,5 @@ app.get('/api/sante', (req, res) => res.json({ statut: 'ok' }));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Serveur Activa Recrutement démarré sur le port ${PORT}`);
+  console.log(`Serveur APRJ démarré sur le port ${PORT}`);
 });

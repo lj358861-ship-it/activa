@@ -13,7 +13,7 @@ const axios = require('axios');
      1. Créer un template nommé comme WHATSAPP_TEMPLATE_NAME (ex: "nouvelle_candidature")
      2. Catégorie : Utility
      3. Corps du message avec variables, ex :
-        "Nouvelle candidature reçue sur Activa Recrutement.
+        "Nouvelle candidature reçue sur APRJ.
          Nom : {{1}}
          Poste souhaité / domaine : {{2}}
          Niveau d'étude : {{3}}
@@ -42,7 +42,7 @@ function enteteAuth() {
 }
 
 /**
- * Envoie une notification "nouvelle candidature" au numéro WhatsApp d'Activa
+ * Envoie une notification "nouvelle candidature" au numéro WhatsApp de l'APRJ
  * via un template Meta approuvé.
  */
 async function envoyerNotificationCandidature({ nomComplet, domaine, niveauEtude, telephone, cvUrl }) {

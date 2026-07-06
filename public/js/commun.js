@@ -50,3 +50,37 @@ async function appelApi(chemin, options = {}) {
 function afficherMessage(conteneur, texte, type = 'erreur') {
   conteneur.innerHTML = `<div class="message message-${type}">${texte}</div>`;
 }
+
+/* ===== Finitions visuelles : en-tête au scroll + animations d'apparition ===== */
+(function () {
+  const entete = document.querySelector('.entete');
+  if (entete) {
+    window.addEventListener('scroll', () => {
+      entete.classList.toggle('entete-ombree', window.scrollY > 12);
+    }, { passive: true });
+  }
+
+  const observateur = new IntersectionObserver((entrees) => {
+    entrees.forEach((entree) => {
+      if (entree.isIntersecting) {
+        entree.target.classList.add('visible');
+        observateur.unobserve(entree.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+  window.reveler = function reveler(racine = document) {
+    racine.querySelectorAll('.reveal:not(.visible)').forEach((el, i) => {
+      el.style.transitionDelay = `${Math.min(i * 60, 300)}ms`;
+      observateur.observe(el);
+    });
+  };
+
+  document.addEventListener('DOMContentLoaded', () => window.reveler());
+})();
+
+function squelette(nombre = 3, hauteur = 90) {
+  return Array.from({ length: nombre }).map(() =>
+    `<div class="squelette" style="height:${hauteur}px;"></div>`
+  ).join('');
+}

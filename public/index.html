@@ -28,15 +28,15 @@
 <section class="hero">
   <div class="conteneur hero-grille">
     <div>
-      <span class="hero-oeillet">Recrutement · Formation · Entretien réel</span>
-      <h1>Le bon poste ne suffit pas.<br>Il faut être prêt à l'occuper.</h1>
-      <p class="intro">Activa Recrutement connecte les entreprises à des talents formés et préparés : parcours pédagogique vérifié, mise en situation d'entretien, et mise en relation directe — pas juste un CV qui traîne.</p>
-      <div class="hero-actions">
-        <a href="/inscription-candidat.html" class="btn btn-or btn-large">Je cherche un emploi</a>
-        <a href="/inscription-employeur.html" class="btn btn-contour-clair btn-large">Je recrute</a>
+      <span class="hero-oeillet hero-anim">Recrutement · Formation · Entretien réel</span>
+      <h1 class="hero-anim">Le bon poste ne suffit pas.<br>Il faut être prêt à l'occuper.</h1>
+      <p class="intro hero-anim">Activa Recrutement connecte les entreprises à des talents formés et préparés : parcours pédagogique vérifié, mise en situation d'entretien, et mise en relation directe — pas juste un CV qui traîne.</p>
+      <div class="hero-actions hero-anim">
+        <a href="/inscription-candidat.html" class="btn btn-or btn-large">Je cherche un emploi <span class="btn-fleche">→</span></a>
+        <a href="/inscription-employeur.html" class="btn btn-contour-clair btn-large">Je recrute <span class="btn-fleche">→</span></a>
       </div>
     </div>
-    <div class="escalier" id="comment-ca-marche">
+    <div class="escalier hero-anim" id="comment-ca-marche">
       <div class="escalier-marche">
         <span class="escalier-num">1</span>
         <div class="escalier-texte"><strong>Inscription</strong><span>Parcours, atouts et CV enregistrés en quelques minutes</span></div>
@@ -57,22 +57,46 @@
   </div>
 </section>
 
+<!-- Remplace ces chiffres par les vrais volumes d'Activa Recrutement une fois disponibles -->
+<section class="stats-barre">
+  <div class="conteneur stats-grille reveal-groupe">
+    <div class="stat-item reveal-enfant">
+      <div class="stat-nombre" data-compte="120">0</div>
+      <div class="stat-label">Entreprises partenaires</div>
+    </div>
+    <div class="stat-item reveal-enfant">
+      <div class="stat-nombre" data-compte="3000">0</div>
+      <div class="stat-label">Candidats inscrits</div>
+    </div>
+    <div class="stat-item reveal-enfant">
+      <div class="stat-nombre" data-compte="480">0</div>
+      <div class="stat-label">Mises en relation réalisées</div>
+    </div>
+    <div class="stat-item reveal-enfant">
+      <div class="stat-nombre" data-compte="97" data-suffixe="%">0</div>
+      <div class="stat-label">Recruteurs satisfaits</div>
+    </div>
+  </div>
+</section>
+
 <section class="section" id="pour-qui">
   <div class="conteneur">
-    <div class="section-titre">
+    <div class="section-titre reveal">
       <h2>Deux profils, un seul parcours</h2>
       <p>Choisis ton espace pour commencer.</p>
     </div>
-    <div class="choix-grille">
-      <a href="/inscription-candidat.html" class="choix-carte">
+    <div class="choix-grille reveal-groupe">
+      <a href="/inscription-candidat.html" class="choix-carte reveal-enfant">
         <div class="carte-icone">👤</div>
         <h3>Je suis candidat</h3>
         <p>Renseigne ton parcours pédagogique, ton expérience, tes atouts et dépose ton CV. Ton profil est enregistré et transmis directement à Activa Assurance.</p>
+        <span class="carte-fleche">Créer mon profil <span>→</span></span>
       </a>
-      <a href="/inscription-employeur.html" class="choix-carte">
+      <a href="/inscription-employeur.html" class="choix-carte reveal-enfant">
         <div class="carte-icone">🏢</div>
         <h3>Je suis employeur</h3>
         <p>Enregistre ton entreprise, dépose une demande de poste avec le niveau et les qualifications requises, puis lance une recherche de profils correspondants.</p>
+        <span class="carte-fleche">Déposer une demande <span>→</span></span>
       </a>
     </div>
   </div>
@@ -80,26 +104,26 @@
 
 <section class="section section-alt">
   <div class="conteneur">
-    <div class="section-titre">
+    <div class="section-titre reveal">
       <h2>Pourquoi Activa Recrutement</h2>
     </div>
-    <div class="grille-cartes">
-      <div class="carte">
+    <div class="grille-cartes reveal-groupe">
+      <div class="carte reveal-enfant">
         <div class="carte-icone">🎯</div>
         <h3>Profils vérifiés</h3>
         <p>Chaque candidat renseigne son parcours réel ; chaque entreprise est vérifiée avant d'accéder aux profils.</p>
       </div>
-      <div class="carte">
+      <div class="carte reveal-enfant">
         <div class="carte-icone">🧭</div>
         <h3>Préparation concrète</h3>
         <p>Formation courte et entretien simulé en conditions réelles avant la mise en relation.</p>
       </div>
-      <div class="carte">
+      <div class="carte reveal-enfant">
         <div class="carte-icone">⚡</div>
         <h3>Recherche instantanée</h3>
         <p>Un poste, un niveau, un domaine : les profils correspondants apparaissent en un clic.</p>
       </div>
-      <div class="carte">
+      <div class="carte reveal-enfant">
         <div class="carte-icone">🔒</div>
         <h3>Confidentialité</h3>
         <p>Les données candidats restent sécurisées et ne sont visibles que par les entreprises validées.</p>
@@ -110,9 +134,63 @@
 
 <footer class="pied">
   <div class="conteneur">
-    &copy; 2026 Activa Assurance — Activa Recrutement. Tous droits réservés.
+    <div class="pied-haut">
+      <div>
+        <h4>Restez informé</h4>
+        <p>Un mail occasionnel dès qu'un nouveau service est disponible.</p>
+      </div>
+      <form class="pied-newsletter" onsubmit="return false;">
+        <input type="email" placeholder="Votre adresse email" required>
+        <button type="submit" class="btn btn-or">S'abonner</button>
+      </form>
+    </div>
+    <div class="pied-bas">
+      &copy; 2026 Activa Assurance — Activa Recrutement. Tous droits réservés.
+    </div>
   </div>
 </footer>
+
+<script>
+// Révélation au défilement
+const elements = document.querySelectorAll('.reveal, .reveal-groupe');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('est-visible');
+      observer.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.15 });
+elements.forEach(el => observer.observe(el));
+
+// Ombre de la barre de navigation au défilement
+const entete = document.querySelector('.entete');
+window.addEventListener('scroll', () => {
+  entete.classList.toggle('entete--scrolled', window.scrollY > 12);
+}, { passive: true });
+
+// Compteurs animés de la barre de chiffres clés
+const compteurs = document.querySelectorAll('.stat-nombre');
+const compteurObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    const el = entry.target;
+    const cible = parseInt(el.dataset.compte, 10);
+    const suffixe = el.dataset.suffixe || '+';
+    const duree = 1200;
+    const debut = performance.now();
+    function tick(maintenant) {
+      const progres = Math.min((maintenant - debut) / duree, 1);
+      const valeur = Math.floor(progres * cible);
+      el.textContent = progres < 1 ? valeur : cible + suffixe;
+      if (progres < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+    compteurObserver.unobserve(el);
+  });
+}, { threshold: 0.4 });
+compteurs.forEach(el => compteurObserver.observe(el));
+</script>
 
 </body>
 </html>

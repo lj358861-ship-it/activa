@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Espace admin — Activa Recrutement</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<header class="entete">
+  <div class="entete-bandeau">
+    <a href="/" class="marque"><span class="pastille">A</span><span>Activa Recrutement<small>ADMINISTRATION</small></span></a>
+    <nav class="nav-liens"></nav>
+    <a href="#" class="btn btn-contour-clair" onclick="deconnecter()">Se déconnecter</a>
+  </div>
+</header>
+
+<div class="conteneur tableau-bord">
+  <div class="tb-entete"><h2 style="margin:0;">Vue d'ensemble</h2></div>
+
+  <div class="tb-stats" id="stats"></div>
+
+  <div class="onglets">
+    <div class="onglet actif" data-onglet="attente">Employeurs en attente</div>
+    <div class="onglet" data-onglet="employeurs">Tous les employeurs</div>
+    <div class="onglet" data-onglet="candidats">Candidats</div>
+  </div>
+
+  <div id="vueAttente"></div>
+  <div id="vueEmployeurs" style="display:none;"></div>
+  <div id="vueCandidats" style="display:none;"></div>
+</div>
+
+<script src="/js/commun.js"></script>
+<script>
+exigerRole('admin');
+
+document.querySelectorAll('.onglet').forEach((o) => {
+  o.addEventListener('click', () => {
+    document.querySelectorAll('.onglet').forEach((x) => x.classList.remove('actif'));
+    o.classList.add('actif');
+    ['vueAttente', 'vueEmployeurs', 'vueCandidats'].forEach((id) => document.getElementById(id).style.display = 'none');
+    if (o.dataset.onglet === 'attente') { document.getElementById('vueAttente').style.display = 'block'; chargerEnAttente(); }
+    if (o.dataset.onglet === 'employeurs') { document.getElementById('vueEmployeurs').style.display = 'block'; chargerEmployeurs(); }
+    if (o.dataset.onglet === 'candidats') { document.getElementById('vueCandidats').style.display = 'block'; chargerCandidats(); }
+  });
+});
+
+async function chargerStats() {
+  try {
+    const s = await appelApi('/admin/statistiques');
+    document.getElementById('stats').innerHTML = `
+      <div class="tb-stat"><div class="valeur">${s.total_candidats}</div><div class="label">Candidats inscrits</div></div>
+      <div class="tb-stat"><div class="valeur">${s.total_employeurs}</div><div class="label">Entreprises inscrites</div></div>
+      <div class="tb-stat"><div class="valeur">${s.employeurs_en_attente}</div><div class="label">En attente de validation</div></div>
+      <div class="tb-stat"><div class="valeur">${s.demandes_ouvertes}</div><div class="label">Demandes ouvertes</div></div>
+    `;
+  } catch (err) { console.error(err); }
+}
+
+async function chargerEnAttente() {
+  const conteneur = document.getElementById('vueAttente');
+  conteneur.innerHTML = '<p>Chargement...</p>';
+  try {
+    const { employeurs } = await appelApi('/admin/employeurs/en-attente');
+    if (!employeurs.length) { conteneur.innerHTML = '<p>Aucun compte en attente de validation.</p>'; return; }
+    conteneur.innerHTML = `
+      <table class="liste">
+        <thead><tr><th>Société</th><th>Secteur</th><th>Téléphone société</th><th>Email</th><th>Inscrit le</th><th></th></tr></thead>
+        <tbody>
+          ${employeurs.map((e) => `
+            <tr>
+              <td>${e.nom_societe}</td>
+              <td>${e.secteur || '—'}</td>
+              <td>${e.telephone_societe}</td>
+              <td>${e.email}</td>
+              <td>${new Date(e.created_at).toLocaleDateString('fr-FR')}</td>
+              <td>
+                <button class="btn btn-vert" onclick="valider(${e.id})">Valider</button>
+                <button class="btn btn-danger" onclick="refuser(${e.id})">Refuser</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+async function valider(id) {
+  await appelApi(`/admin/employeurs/${id}/valider`, { method: 'POST' });
+  chargerEnAttente(); chargerStats();
+}
+async function refuser(id) {
+  await appelApi(`/admin/employeurs/${id}/refuser`, { method: 'POST' });
+  chargerEnAttente(); chargerStats();
+}
+
+async function chargerEmployeurs() {
+  const conteneur = document.getElementById('vueEmployeurs');
+  conteneur.innerHTML = '<p>Chargement...</p>';
+  try {
+    const { employeurs } = await appelApi('/admin/employeurs');
+    conteneur.innerHTML = `
+      <table class="liste">
+        <thead><tr><th>Société</th><th>Secteur</th><th>Email</th><th>Statut</th></tr></thead>
+        <tbody>
+          ${employeurs.map((e) => `
+            <tr>
+              <td>${e.nom_societe}</td>
+              <td>${e.secteur || '—'}</td>
+              <td>${e.email}</td>
+              <td><span class="etiquette ${e.is_valide ? 'etiquette-valide' : 'etiquette-attente'}">${e.is_valide ? 'Validé' : 'En attente'}</span></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+async function chargerCandidats() {
+  const conteneur = document.getElementById('vueCandidats');
+  conteneur.innerHTML = '<p>Chargement...</p>';
+  try {
+    const { candidats } = await appelApi('/admin/candidats');
+    conteneur.innerHTML = `
+      <table class="liste">
+        <thead><tr><th>Nom</th><th>Domaine</th><th>Niveau</th><th>Ville</th><th>WhatsApp envoyé</th><th>CV</th></tr></thead>
+        <tbody>
+          ${candidats.map((c) => `
+            <tr>
+              <td>${c.nom_complet}</td>
+              <td>${c.domaine}</td>
+              <td>${c.niveau_etude}</td>
+              <td>${c.ville || '—'}</td>
+              <td>${c.whatsapp_envoye ? '✅' : '—'}</td>
+              <td>${c.cv_path ? `<a href="/uploads/${c.cv_path}" target="_blank">Voir</a>` : '—'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+chargerStats();
+chargerEnAttente();
+</script>
+</body>
+</html>

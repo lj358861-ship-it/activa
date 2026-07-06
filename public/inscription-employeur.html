@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inscription employeur — Activa Recrutement</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<header class="entete">
+  <div class="entete-bandeau">
+    <a href="/" class="marque"><span class="pastille">A</span><span>Activa Recrutement<small>UN SERVICE ACTIVA ASSURANCE</small></span></a>
+    <nav class="nav-liens"><a href="/connexion.html">Se connecter</a></nav>
+    <a href="/inscription-candidat.html" class="btn btn-contour">Espace candidat</a>
+  </div>
+</header>
+
+<section class="section">
+  <div class="conteneur">
+    <div class="section-titre">
+      <h2>Enregistre ton entreprise</h2>
+      <p>Ton compte sera activé après vérification par Activa Assurance, afin de garantir la fiabilité des demandes.</p>
+    </div>
+
+    <form class="carte-formulaire" id="formEmployeur">
+      <div id="zoneMessage"></div>
+
+      <h3>Compte</h3>
+      <div class="ligne-deux">
+        <div class="champ">
+          <label for="email">Email professionnel *</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+        <div class="champ">
+          <label for="telephone">Ton numéro (contact) *</label>
+          <input type="tel" id="telephone" name="telephone" placeholder="+237 6XX XX XX XX" required>
+        </div>
+      </div>
+      <div class="champ">
+        <label for="mot_de_passe">Mot de passe *</label>
+        <input type="password" id="mot_de_passe" name="mot_de_passe" minlength="6" required>
+      </div>
+
+      <h3 style="margin-top:28px;">Entreprise</h3>
+      <div class="champ">
+        <label for="nom_societe">Nom de la société *</label>
+        <input type="text" id="nom_societe" name="nom_societe" required>
+      </div>
+      <div class="ligne-deux">
+        <div class="champ">
+          <label for="secteur">Secteur d'activité</label>
+          <input type="text" id="secteur" name="secteur" placeholder="Assurance, BTP, Commerce...">
+        </div>
+        <div class="champ">
+          <label for="ville">Ville</label>
+          <input type="text" id="ville" name="ville">
+        </div>
+      </div>
+      <div class="champ">
+        <label for="telephone_societe">Numéro affilié à la société *</label>
+        <input type="tel" id="telephone_societe" name="telephone_societe" placeholder="Numéro officiel de l'entreprise" required>
+        <div class="aide">Ce numéro sert à vérifier que le compte représente bien la société.</div>
+      </div>
+
+      <button type="submit" class="btn btn-or btn-large btn-bloc" id="btnEnvoyer">Créer mon compte entreprise</button>
+    </form>
+  </div>
+</section>
+
+<footer class="pied"><div class="conteneur">&copy; 2026 Activa Assurance — Activa Recrutement.</div></footer>
+
+<script src="/js/commun.js"></script>
+<script>
+document.getElementById('formEmployeur').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const zone = document.getElementById('zoneMessage');
+  const bouton = document.getElementById('btnEnvoyer');
+  bouton.disabled = true;
+  bouton.textContent = 'Envoi en cours...';
+
+  const donnees = Object.fromEntries(new FormData(e.target).entries());
+
+  try {
+    await appelApi('/employeurs/inscription', { method: 'POST', corpsJson: donnees });
+    afficherMessage(zone, 'Compte créé ! Il sera activé après vérification par Activa Assurance. Tu recevras un accès une fois validé.', 'succes');
+    e.target.reset();
+  } catch (err) {
+    afficherMessage(zone, err.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+    bouton.textContent = 'Créer mon compte entreprise';
+  }
+});
+</script>
+</body>
+</html>

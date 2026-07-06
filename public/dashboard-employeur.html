@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Espace employeur — Activa Recrutement</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<header class="entete">
+  <div class="entete-bandeau">
+    <a href="/" class="marque"><span class="pastille">A</span><span>Activa Recrutement<small>ESPACE EMPLOYEUR</small></span></a>
+    <nav class="nav-liens"></nav>
+    <a href="#" class="btn btn-contour-clair" onclick="deconnecter()">Se déconnecter</a>
+  </div>
+</header>
+
+<div class="conteneur tableau-bord">
+  <div class="tb-entete">
+    <h2 style="margin:0;">Mes demandes de recrutement</h2>
+  </div>
+
+  <div class="onglets">
+    <div class="onglet actif" data-onglet="nouvelle">Nouvelle demande</div>
+    <div class="onglet" data-onglet="liste">Mes demandes</div>
+  </div>
+
+  <div id="vueNouvelle">
+    <div id="zoneMessageDemande"></div>
+    <form class="carte-formulaire" id="formDemande" style="max-width:720px; margin:0;">
+      <div class="ligne-deux">
+        <div class="champ">
+          <label for="poste">Intitulé du poste *</label>
+          <input type="text" id="poste" name="poste" required>
+        </div>
+        <div class="champ">
+          <label for="nombre_postes">Nombre de postes</label>
+          <input type="number" id="nombre_postes" name="nombre_postes" min="1" value="1">
+        </div>
+      </div>
+      <div class="ligne-deux">
+        <div class="champ">
+          <label for="domaine">Domaine *</label>
+          <select id="domaine" name="domaine" required>
+            <option value="">Choisir...</option>
+            <option>Informatique & Digital</option>
+            <option>Finance & Comptabilité</option>
+            <option>Marketing & Communication</option>
+            <option>Ressources Humaines</option>
+            <option>Commerce & Gestion</option>
+            <option>Assurance & Banque</option>
+            <option>Santé & Paramédical</option>
+            <option>Autres domaines</option>
+          </select>
+        </div>
+        <div class="champ">
+          <label for="niveau_etude_requis">Niveau d'étude requis *</label>
+          <select id="niveau_etude_requis" name="niveau_etude_requis" required>
+            <option value="">Choisir...</option>
+            <option>CEP</option><option>BEPC</option><option>Probatoire</option>
+            <option>Baccalauréat</option><option>BTS</option><option>Licence</option>
+            <option>Master</option><option>Doctorat</option>
+          </select>
+        </div>
+      </div>
+      <div class="champ">
+        <label for="qualifications">Qualifications recherchées</label>
+        <textarea id="qualifications" name="qualifications" rows="2"></textarea>
+      </div>
+      <div class="champ">
+        <label for="description">Description du poste</label>
+        <textarea id="description" name="description" rows="3"></textarea>
+      </div>
+      <button type="submit" class="btn btn-or btn-large" id="btnDemande">Publier la demande</button>
+    </form>
+  </div>
+
+  <div id="vueListe" style="display:none;">
+    <div id="listeDemandes"></div>
+    <div id="resultatsRecherche" style="margin-top:28px;"></div>
+  </div>
+</div>
+
+<script src="/js/commun.js"></script>
+<script>
+exigerRole('employeur');
+
+document.querySelectorAll('.onglet').forEach((o) => {
+  o.addEventListener('click', () => {
+    document.querySelectorAll('.onglet').forEach((x) => x.classList.remove('actif'));
+    o.classList.add('actif');
+    const cible = o.dataset.onglet;
+    document.getElementById('vueNouvelle').style.display = cible === 'nouvelle' ? 'block' : 'none';
+    document.getElementById('vueListe').style.display = cible === 'liste' ? 'block' : 'none';
+    if (cible === 'liste') chargerDemandes();
+  });
+});
+
+document.getElementById('formDemande').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const zone = document.getElementById('zoneMessageDemande');
+  const bouton = document.getElementById('btnDemande');
+  bouton.disabled = true;
+  const donnees = Object.fromEntries(new FormData(e.target).entries());
+  try {
+    await appelApi('/employeurs/demandes', { method: 'POST', corpsJson: donnees });
+    afficherMessage(zone, 'Demande publiée avec succès.', 'succes');
+    e.target.reset();
+  } catch (err) {
+    afficherMessage(zone, err.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+  }
+});
+
+async function chargerDemandes() {
+  const conteneur = document.getElementById('listeDemandes');
+  conteneur.innerHTML = '<p>Chargement...</p>';
+  try {
+    const { demandes } = await appelApi('/employeurs/demandes');
+    if (!demandes.length) {
+      conteneur.innerHTML = '<p>Aucune demande publiée pour le moment.</p>';
+      return;
+    }
+    conteneur.innerHTML = `
+      <table class="liste">
+        <thead><tr><th>Poste</th><th>Domaine</th><th>Niveau requis</th><th>Statut</th><th>Publiée le</th><th></th></tr></thead>
+        <tbody>
+          ${demandes.map((d) => `
+            <tr>
+              <td>${d.poste}</td>
+              <td>${d.domaine}</td>
+              <td>${d.niveau_etude_requis}</td>
+              <td><span class="etiquette etiquette-valide">${d.statut}</span></td>
+              <td>${new Date(d.created_at).toLocaleDateString('fr-FR')}</td>
+              <td><button class="btn btn-marine" onclick="rechercher(${d.id})">Faire une recherche</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) {
+    conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`;
+  }
+}
+
+async function rechercher(demandeId) {
+  const conteneur = document.getElementById('resultatsRecherche');
+  conteneur.innerHTML = '<p>Recherche des profils correspondants...</p>';
+  try {
+    const { demande, resultats } = await appelApi(`/recherche/demandes/${demandeId}/candidats`);
+    if (!resultats.length) {
+      conteneur.innerHTML = `<div class="message message-attente">Aucun profil ne correspond encore à "${demande.poste}". Nouvelle recherche possible dès que de nouveaux candidats s'inscrivent.</div>`;
+      return;
+    }
+    conteneur.innerHTML = `
+      <h3>Profils correspondants pour "${demande.poste}"</h3>
+      <table class="liste">
+        <thead><tr><th>Candidat</th><th>Ville</th><th>Niveau</th><th>Atouts</th><th>Correspondance</th><th>CV</th></tr></thead>
+        <tbody>
+          ${resultats.map((c) => `
+            <tr>
+              <td>${c.nom_complet}</td>
+              <td>${c.ville || '—'}</td>
+              <td>${c.niveau_etude}</td>
+              <td>${c.atouts || '—'}</td>
+              <td><span class="etiquette etiquette-score">${c.score_correspondance}%</span></td>
+              <td>${c.cv_path ? `<a href="/uploads/${c.cv_path}" target="_blank">Voir le CV</a>` : '—'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) {
+    conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`;
+  }
+}
+</script>
+</body>
+</html>

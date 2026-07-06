@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connexion — Activa Recrutement</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<header class="entete">
+  <div class="entete-bandeau">
+    <a href="/" class="marque"><span class="pastille">A</span><span>Activa Recrutement<small>UN SERVICE ACTIVA ASSURANCE</small></span></a>
+    <nav class="nav-liens"></nav>
+    <a href="/" class="btn btn-contour">Retour à l'accueil</a>
+  </div>
+</header>
+
+<section class="section">
+  <div class="conteneur">
+    <div class="section-titre">
+      <h2>Se connecter</h2>
+      <p>Réservé aux comptes employeur et administrateur.</p>
+    </div>
+
+    <form class="carte-formulaire" id="formConnexion" style="max-width:440px;">
+      <div id="zoneMessage"></div>
+      <div class="champ">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required>
+      </div>
+      <div class="champ">
+        <label for="mot_de_passe">Mot de passe</label>
+        <input type="password" id="mot_de_passe" name="mot_de_passe" required>
+      </div>
+      <button type="submit" class="btn btn-or btn-large btn-bloc" id="btnEnvoyer">Se connecter</button>
+    </form>
+  </div>
+</section>
+
+<footer class="pied"><div class="conteneur">&copy; 2026 Activa Assurance — Activa Recrutement.</div></footer>
+
+<script src="/js/commun.js"></script>
+<script>
+document.getElementById('formConnexion').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const zone = document.getElementById('zoneMessage');
+  const bouton = document.getElementById('btnEnvoyer');
+  bouton.disabled = true;
+  bouton.textContent = 'Connexion...';
+
+  const donnees = Object.fromEntries(new FormData(e.target).entries());
+
+  try {
+    const resultat = await appelApi('/auth/connexion', { method: 'POST', corpsJson: donnees });
+    enregistrerSession(resultat.token, resultat.role, resultat.email);
+    if (resultat.role === 'admin') {
+      window.location.href = '/dashboard-admin.html';
+    } else if (resultat.role === 'employeur') {
+      window.location.href = '/dashboard-employeur.html';
+    } else {
+      window.location.href = '/';
+    }
+  } catch (err) {
+    afficherMessage(zone, err.message, 'erreur');
+    bouton.disabled = false;
+    bouton.textContent = 'Se connecter';
+  }
+});
+</script>
+</body>
+</html>

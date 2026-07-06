@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Espace admin — APRJ</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="icon" type="image/png" href="/img/favicon.png">
-<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 <div id="aprjIntro" class="aprj-intro">
   <div class="aprj-intro-anneau"></div>
-  <img src="/img/logo-embleme.png" alt="Logo APRJ" class="aprj-intro-logo">
+  <img src="/logo-embleme.png" alt="Logo APRJ" class="aprj-intro-logo">
   <div class="aprj-intro-texte">
     <strong>APRJ</strong>
     <span>Ensemble pour demain</span>
@@ -36,9 +36,14 @@
 
 <header class="entete">
   <div class="entete-bandeau">
-    <a href="/" class="marque"><img src="/img/logo-embleme.png" alt="Logo APRJ" class="marque-logo"><span>APRJ<small>ADMINISTRATION</small></span></a>
-    <nav class="nav-liens"></nav>
-    <a href="#" class="btn btn-contour-clair" onclick="deconnecter()">Se déconnecter</a>
+    <a href="/" class="marque"><img src="/logo-embleme.png" alt="Logo APRJ" class="marque-logo"><span>APRJ<small>ADMINISTRATION</small></span></a>
+    <button class="bouton-burger" id="boutonBurger" aria-label="Ouvrir le menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="entete-actions" id="menuMobile">
+      <nav class="nav-liens"></nav>
+      <a href="#" class="btn btn-contour-clair" onclick="deconnecter()">Se déconnecter</a>
+    </div>
   </div>
 </header>
 

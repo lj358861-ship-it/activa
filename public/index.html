@@ -6,14 +6,14 @@
 <title>APRJ — Trouver le bon talent, prêt à travailler</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="icon" type="image/png" href="/img/favicon.png">
-<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 <div id="aprjIntro" class="aprj-intro">
   <div class="aprj-intro-anneau"></div>
-  <img src="/img/logo-embleme.png" alt="Logo APRJ" class="aprj-intro-logo">
+  <img src="/logo-embleme.png" alt="Logo APRJ" class="aprj-intro-logo">
   <div class="aprj-intro-texte">
     <strong>APRJ</strong>
     <span>Ensemble pour demain</span>
@@ -38,16 +38,21 @@
 <header class="entete">
   <div class="entete-bandeau">
     <a href="/" class="marque">
-      <img src="/img/logo-embleme.png" alt="Logo APRJ" class="marque-logo">
+      <img src="/logo-embleme.png" alt="Logo APRJ" class="marque-logo">
       <span>APRJ<small>ENSEMBLE POUR DEMAIN</small></span>
     </a>
-    <nav class="nav-liens">
+    <button class="bouton-burger" id="boutonBurger" aria-label="Ouvrir le menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="entete-actions" id="menuMobile">
+      <nav class="nav-liens">
       <a href="/services.html">Services & activités</a>
       <a href="/collaborateurs.html">Collaborateurs</a>
       <a href="/contact.html">Contact</a>
       <a href="/connexion.html">Se connecter</a>
     </nav>
-    <a href="#inscription" class="btn btn-or">Créer un compte</a>
+      <a href="#inscription" class="btn btn-or">Créer un compte</a>
+    </div>
   </div>
 </header>
 

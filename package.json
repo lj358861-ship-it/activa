@@ -1,7 +1,7 @@
 {
-  "name": "activa-recrutement",
+  "name": "aprj-recrutement",
   "version": "1.0.0",
-  "description": "Plateforme de recrutement avec formation et préparation à l'entretien - Activa Assurance",
+  "description": "Plateforme de recrutement avec formation et préparation à l'entretien - l'Association A.P.R.J.",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",

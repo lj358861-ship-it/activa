@@ -1,13 +1,29 @@
-# Activa Recrutement
+# APRJ — Plateforme de recrutement
 
-Plateforme de recrutement avec préparation à l'emploi (formation + entretien en conditions réelles), développée pour le service recrutement d'Activa Assurance.
+Plateforme de recrutement avec préparation à l'emploi (formation + entretien en conditions réelles), développée pour l'**Association A.P.R.J.** — *Ensemble pour demain*.
+
+## Identité visuelle
+
+- Logo retouché (nettoyage du fond, contraste et netteté améliorés, sans modification du design) dans `public/img/logo.png` (version complète) et `public/img/logo-embleme.png` (emblème seul, utilisé en en-tête et favicon).
+- Favicon et icône iOS générés automatiquement à partir du logo (`public/img/favicon.png`, `public/img/apple-touch-icon.png`).
+- **Animation de lancement** : à la première visite (par session navigateur), le logo apparaît en fondu/zoom sur fond marine avant de laisser place au site. Elle ne se rejoue pas tant que la session du navigateur reste active (`sessionStorage`).
+- Remplace `public/img/logo.png` et `logo-embleme.png` par une version encore plus soignée (ex: fournie par un graphiste) si besoin — aucun autre fichier à modifier, ils sont référencés partout par ce chemin.
 
 ## Fonctionnement
 
-- **Candidats** : créent un profil (parcours pédagogique, professionnel, atouts, CV). Le profil est enregistré en base **et** une notification est envoyée automatiquement sur le WhatsApp d'Activa Assurance.
+- **Candidats** : créent un profil (parcours pédagogique, professionnel, atouts, CV). Le profil est enregistré en base **et** une notification est envoyée automatiquement sur le WhatsApp de l'APRJ.
 - **Employeurs** : créent un compte entreprise (avec le numéro affilié à la société). Le compte doit être **validé par un admin** avant de pouvoir déposer des demandes.
 - **Demandes** : un employeur validé publie une demande (poste, domaine, niveau d'étude requis, qualifications). Il clique sur "Faire une recherche" pour voir les profils candidats correspondants (mêmes domaine + niveau d'étude suffisant), avec un score de correspondance.
-- **Admin** : valide/refuse les comptes employeurs, consulte tous les candidats et les statistiques globales.
+- **Admin** : pilote l'intégralité du site depuis un seul back-office :
+  - Valide/refuse les comptes employeurs
+  - Consulte tous les candidats inscrits et les statistiques globales
+  - Gère les **services & activités** affichés sur le site
+  - Gère les **événements** (séminaires, festivals, formations) avec image, lieu et dates
+  - Gère la page **collaborateurs** (nom, poste, bio, photo)
+  - Consulte et traite les **messages du formulaire de contact**
+  - Gère les **images + slogans du carrousel** affiché en haut de chaque page (accueil, services, collaborateurs, contact, inscriptions) — c'est ici que tu ajoutes tes vraies photos et textes dès que tu les as.
+- **Pages publiques** : Accueil (avec carrousel + aperçu services + section contact), Services & activités (séminaires/festivals/formations), Collaborateurs, Contact (formulaire).
+- **Design** : palette marine/or, typographies Fraunces + Inter, animations au scroll, effet Ken Burns sur le carrousel, skeleton loaders pendant le chargement, transitions soignées sur les boutons/cartes/navigation.
 
 ## Stack technique
 
@@ -15,7 +31,7 @@ Plateforme de recrutement avec préparation à l'emploi (formation + entretien e
 - Frontend : HTML / CSS / JS natif (aucun framework)
 - Base de données : MySQL
 - Authentification : JWT + bcrypt
-- Upload fichiers : Multer (CV, photo)
+- Upload fichiers : Multer (CV, photo, images d'événements/collaborateurs/carrousel)
 - Notifications : WhatsApp Business Cloud API (Meta)
 
 ## Installation en local
@@ -29,10 +45,10 @@ npm run dev          # démarre le serveur sur http://localhost:3000
 ```
 
 Compte admin créé automatiquement par `npm run init-db` :
-- Email : `admin@activa-assurance.com`
+- Email : `admin@aprj.org`
 - Mot de passe temporaire : `ChangeMoi123!`
 
-**Change ce mot de passe dès la première connexion** (mets à jour le hash en base avec `npm run hash-password "NouveauMotDePasse"`, puis `UPDATE users SET password_hash = '...' WHERE email = 'admin@activa-assurance.com';`).
+**Change ce mot de passe dès la première connexion** (mets à jour le hash en base avec `npm run hash-password "NouveauMotDePasse"`, puis `UPDATE users SET password_hash = '...' WHERE email = 'admin@aprj.org';`).
 
 ## Déploiement sur Railway
 
@@ -42,7 +58,7 @@ Compte admin créé automatiquement par `npm run init-db` :
 4. Dans les **Variables** du service web, ajoute :
    - `JWT_SECRET` (chaîne aléatoire longue)
    - `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `ADMIN_WHATSAPP_NUMBER`, `WHATSAPP_TEMPLATE_NAME` (voir section WhatsApp ci-dessous)
-   - `PUBLIC_BASE_URL` = l'URL Railway générée (ex: `https://activa-recrutement.up.railway.app`)
+   - `PUBLIC_BASE_URL` = l'URL Railway générée (ex: `https://aprj-recrutement.up.railway.app`)
 5. Une fois le premier déploiement terminé, ouvre un terminal Railway (ou lance en local en pointant sur la base Railway) et exécute :
    ```bash
    npm run init-db
@@ -55,7 +71,7 @@ Railway ne garantit pas la persistance du disque entre redéploiements. Pour la 
 
 ## Configuration WhatsApp Business Cloud API (Meta)
 
-L'inscription candidat envoie une notification WhatsApp au numéro d'Activa via un **template** — Meta impose qu'une conversation initiée par une entreprise (et non par le client) passe par un message modèle validé.
+L'inscription candidat envoie une notification WhatsApp au numéro de l'APRJ via un **template** — Meta impose qu'une conversation initiée par une entreprise (et non par le client) passe par un message modèle validé.
 
 **Étapes (une seule fois) :**
 
@@ -63,7 +79,7 @@ L'inscription candidat envoie une notification WhatsApp au numéro d'Activa via 
 2. Récupérer `WHATSAPP_TOKEN` (jeton d'accès permanent, via un utilisateur système) et `WHATSAPP_PHONE_NUMBER_ID` (numéro expéditeur configuré côté Meta).
 3. Dans le Meta Business Manager, créer un template (catégorie **Utility**) nommé par exemple `nouvelle_candidature`, avec un corps du type :
    ```
-   Nouvelle candidature reçue sur Activa Recrutement.
+   Nouvelle candidature reçue sur APRJ.
    Nom : {{1}}
    Domaine : {{2}}
    Niveau d'étude : {{3}}
@@ -94,15 +110,29 @@ server/
   services/whatsapp.js    -> appels API Meta
 
 public/
-  index.html                  -> page d'accueil
+  index.html                  -> page d'accueil (carrousel + services + contact)
+  services.html                -> services & activités (séminaires, festivals, formations)
+  collaborateurs.html          -> page équipe / collaborateurs
+  contact.html                 -> formulaire de contact
   inscription-candidat.html
   inscription-employeur.html
   connexion.html
   dashboard-employeur.html    -> publier une demande + rechercher
-  dashboard-admin.html        -> valider employeurs, stats
+  dashboard-admin.html        -> gère TOUT le site (employeurs, candidats, services, événements, collaborateurs, messages, carrousel)
   css/style.css
-  js/commun.js
+  js/commun.js                -> utilitaires + animations (reveal au scroll, en-tête au scroll)
+  js/carrousel.js              -> composant carrousel réutilisable (image + slogan)
 ```
+
+## Ajouter tes vrais contenus (photos, textes) demain
+
+Tout se fait depuis l'espace admin (`/dashboard-admin.html`), sans toucher au code :
+1. Onglet **"Images & slogans (accueil)"** : ajoute une diapositive par page (accueil, services, collaborateurs, contact...) avec ton image et ton slogan.
+2. Onglet **Services** : modifie les 4 services de démonstration ou ajoute les tiens.
+3. Onglet **Événements** : ajoute tes séminaires/festivals/formations avec image, lieu et dates.
+4. Onglet **Collaborateurs** : ajoute les membres de l'équipe avec leur photo.
+
+Tant qu'aucune image n'est ajoutée, le carrousel affiche un fond dégradé marine avec le slogan — le site reste donc présentable dès maintenant.
 
 ## Points à surveiller avant mise en production
 

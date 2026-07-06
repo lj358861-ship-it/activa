@@ -3,15 +3,40 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Espace admin — Activa Recrutement</title>
+<title>Espace admin — APRJ</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="/img/favicon.png">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+<div id="aprjIntro" class="aprj-intro">
+  <div class="aprj-intro-anneau"></div>
+  <img src="/img/logo-embleme.png" alt="Logo APRJ" class="aprj-intro-logo">
+  <div class="aprj-intro-texte">
+    <strong>APRJ</strong>
+    <span>Ensemble pour demain</span>
+  </div>
+</div>
+<script>
+(function(){
+  var overlay = document.getElementById('aprjIntro');
+  if (!overlay) return;
+  if (sessionStorage.getItem('aprj_intro_vu')) {
+    overlay.style.display = 'none';
+    return;
+  }
+  sessionStorage.setItem('aprj_intro_vu', '1');
+  setTimeout(function(){
+    overlay.classList.add('aprj-intro-sortie');
+    setTimeout(function(){ if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 700);
+  }, 1500);
+})();
+</script>
 
 <header class="entete">
   <div class="entete-bandeau">
-    <a href="/" class="marque"><span class="pastille">A</span><span>Activa Recrutement<small>ADMINISTRATION</small></span></a>
+    <a href="/" class="marque"><img src="/img/logo-embleme.png" alt="Logo APRJ" class="marque-logo"><span>APRJ<small>ADMINISTRATION</small></span></a>
     <nav class="nav-liens"></nav>
     <a href="#" class="btn btn-contour-clair" onclick="deconnecter()">Se déconnecter</a>
   </div>
@@ -26,11 +51,119 @@
     <div class="onglet actif" data-onglet="attente">Employeurs en attente</div>
     <div class="onglet" data-onglet="employeurs">Tous les employeurs</div>
     <div class="onglet" data-onglet="candidats">Candidats</div>
+    <div class="onglet" data-onglet="services">Services</div>
+    <div class="onglet" data-onglet="evenements">Événements</div>
+    <div class="onglet" data-onglet="collaborateurs">Collaborateurs</div>
+    <div class="onglet" data-onglet="messages">Messages de contact</div>
+    <div class="onglet" data-onglet="hero">Images & slogans (accueil)</div>
   </div>
 
   <div id="vueAttente"></div>
   <div id="vueEmployeurs" style="display:none;"></div>
   <div id="vueCandidats" style="display:none;"></div>
+
+  <div id="vueServices" style="display:none;">
+    <div class="admin-grille-form">
+      <form class="carte-formulaire compact" id="formService">
+        <h3 id="titreFormService">Ajouter un service</h3>
+        <input type="hidden" id="serviceId">
+        <div class="champ"><label>Icône (emoji)</label><input type="text" id="serviceIcone" placeholder="🎯" value="📌"></div>
+        <div class="champ"><label>Titre *</label><input type="text" id="serviceTitre" required></div>
+        <div class="champ"><label>Description</label><textarea id="serviceDescription" rows="3"></textarea></div>
+        <div class="champ"><label>Ordre d'affichage</label><input type="number" id="serviceOrdre" value="0"></div>
+        <button type="submit" class="btn btn-or btn-bloc">Enregistrer</button>
+        <button type="button" class="btn btn-contour btn-bloc" style="margin-top:8px;" onclick="resetFormService()">Annuler</button>
+      </form>
+      <div id="listeAdminServices"></div>
+    </div>
+  </div>
+
+  <div id="vueEvenements" style="display:none;">
+    <div class="admin-grille-form">
+      <form class="carte-formulaire compact" id="formEvenement" enctype="multipart/form-data">
+        <h3 id="titreFormEvenement">Ajouter un événement</h3>
+        <input type="hidden" id="evenementId">
+        <div class="champ">
+          <label>Type</label>
+          <select id="evenementType">
+            <option value="seminaire">Séminaire</option>
+            <option value="festival">Festival</option>
+            <option value="formation">Formation</option>
+            <option value="autre">Autre</option>
+          </select>
+        </div>
+        <div class="champ"><label>Titre *</label><input type="text" id="evenementTitre" required></div>
+        <div class="champ"><label>Description</label><textarea id="evenementDescription" rows="2"></textarea></div>
+        <div class="champ"><label>Lieu</label><input type="text" id="evenementLieu"></div>
+        <div class="ligne-deux">
+          <div class="champ"><label>Date début</label><input type="date" id="evenementDateDebut"></div>
+          <div class="champ"><label>Date fin</label><input type="date" id="evenementDateFin"></div>
+        </div>
+        <div class="champ">
+          <label>Image</label>
+          <div class="champ-fichier"><input type="file" id="evenementImage" accept=".jpg,.jpeg,.png,.webp"></div>
+        </div>
+        <div class="champ"><label>Ordre</label><input type="number" id="evenementOrdre" value="0"></div>
+        <button type="submit" class="btn btn-or btn-bloc">Enregistrer</button>
+        <button type="button" class="btn btn-contour btn-bloc" style="margin-top:8px;" onclick="resetFormEvenement()">Annuler</button>
+      </form>
+      <div id="listeAdminEvenements"></div>
+    </div>
+  </div>
+
+  <div id="vueCollaborateurs" style="display:none;">
+    <div class="admin-grille-form">
+      <form class="carte-formulaire compact" id="formCollaborateur" enctype="multipart/form-data">
+        <h3 id="titreFormCollaborateur">Ajouter un collaborateur</h3>
+        <input type="hidden" id="collaborateurId">
+        <div class="champ"><label>Nom complet *</label><input type="text" id="collaborateurNom" required></div>
+        <div class="champ"><label>Poste</label><input type="text" id="collaborateurPoste"></div>
+        <div class="champ"><label>Bio</label><textarea id="collaborateurBio" rows="3"></textarea></div>
+        <div class="champ">
+          <label>Photo</label>
+          <div class="champ-fichier"><input type="file" id="collaborateurPhoto" accept=".jpg,.jpeg,.png,.webp"></div>
+        </div>
+        <div class="champ"><label>Ordre</label><input type="number" id="collaborateurOrdre" value="0"></div>
+        <button type="submit" class="btn btn-or btn-bloc">Enregistrer</button>
+        <button type="button" class="btn btn-contour btn-bloc" style="margin-top:8px;" onclick="resetFormCollaborateur()">Annuler</button>
+      </form>
+      <div id="listeAdminCollaborateurs"></div>
+    </div>
+  </div>
+
+  <div id="vueMessages" style="display:none;">
+    <div id="listeMessages"></div>
+  </div>
+
+  <div id="vueHero" style="display:none;">
+    <div class="admin-grille-form">
+      <form class="carte-formulaire compact" id="formHero" enctype="multipart/form-data">
+        <h3 id="titreFormHero">Ajouter une diapositive</h3>
+        <input type="hidden" id="heroId">
+        <div class="champ">
+          <label>Page *</label>
+          <select id="heroPage" required>
+            <option value="accueil">Accueil</option>
+            <option value="services">Services & activités</option>
+            <option value="collaborateurs">Collaborateurs</option>
+            <option value="contact">Contact</option>
+            <option value="candidat">Inscription candidat</option>
+            <option value="employeur">Inscription employeur</option>
+          </select>
+        </div>
+        <div class="champ"><label>Slogan (titre principal) *</label><input type="text" id="heroSlogan" required></div>
+        <div class="champ"><label>Sous-texte</label><input type="text" id="heroSousTexte"></div>
+        <div class="champ">
+          <label>Image (optionnel — fond dégradé sinon)</label>
+          <div class="champ-fichier"><input type="file" id="heroImage" accept=".jpg,.jpeg,.png,.webp"></div>
+        </div>
+        <div class="champ"><label>Ordre</label><input type="number" id="heroOrdre" value="0"></div>
+        <button type="submit" class="btn btn-or btn-bloc">Enregistrer</button>
+        <button type="button" class="btn btn-contour btn-bloc" style="margin-top:8px;" onclick="resetFormHero()">Annuler</button>
+      </form>
+      <div id="listeAdminHero"></div>
+    </div>
+  </div>
 </div>
 
 <script src="/js/commun.js"></script>
@@ -41,12 +174,353 @@ document.querySelectorAll('.onglet').forEach((o) => {
   o.addEventListener('click', () => {
     document.querySelectorAll('.onglet').forEach((x) => x.classList.remove('actif'));
     o.classList.add('actif');
-    ['vueAttente', 'vueEmployeurs', 'vueCandidats'].forEach((id) => document.getElementById(id).style.display = 'none');
-    if (o.dataset.onglet === 'attente') { document.getElementById('vueAttente').style.display = 'block'; chargerEnAttente(); }
-    if (o.dataset.onglet === 'employeurs') { document.getElementById('vueEmployeurs').style.display = 'block'; chargerEmployeurs(); }
-    if (o.dataset.onglet === 'candidats') { document.getElementById('vueCandidats').style.display = 'block'; chargerCandidats(); }
+    ['vueAttente', 'vueEmployeurs', 'vueCandidats', 'vueServices', 'vueEvenements', 'vueCollaborateurs', 'vueMessages', 'vueHero']
+      .forEach((id) => document.getElementById(id).style.display = 'none');
+    const cible = o.dataset.onglet;
+    if (cible === 'attente') { document.getElementById('vueAttente').style.display = 'block'; chargerEnAttente(); }
+    if (cible === 'employeurs') { document.getElementById('vueEmployeurs').style.display = 'block'; chargerEmployeurs(); }
+    if (cible === 'candidats') { document.getElementById('vueCandidats').style.display = 'block'; chargerCandidats(); }
+    if (cible === 'services') { document.getElementById('vueServices').style.display = 'block'; chargerAdminServices(); }
+    if (cible === 'evenements') { document.getElementById('vueEvenements').style.display = 'block'; chargerAdminEvenements(); }
+    if (cible === 'collaborateurs') { document.getElementById('vueCollaborateurs').style.display = 'block'; chargerAdminCollaborateurs(); }
+    if (cible === 'messages') { document.getElementById('vueMessages').style.display = 'block'; chargerMessages(); }
+    if (cible === 'hero') { document.getElementById('vueHero').style.display = 'block'; chargerAdminHero(); }
   });
 });
+
+/* ===== SERVICES ===== */
+function resetFormService() {
+  document.getElementById('serviceId').value = '';
+  document.getElementById('serviceIcone').value = '📌';
+  document.getElementById('serviceTitre').value = '';
+  document.getElementById('serviceDescription').value = '';
+  document.getElementById('serviceOrdre').value = 0;
+  document.getElementById('titreFormService').textContent = 'Ajouter un service';
+}
+
+document.getElementById('formService').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('serviceId').value;
+  const corps = {
+    icone: document.getElementById('serviceIcone').value,
+    titre: document.getElementById('serviceTitre').value,
+    description: document.getElementById('serviceDescription').value,
+    ordre: document.getElementById('serviceOrdre').value
+  };
+  try {
+    if (id) await appelApi(`/admin/services/${id}`, { method: 'PUT', corpsJson: corps });
+    else await appelApi('/admin/services', { method: 'POST', corpsJson: corps });
+    resetFormService();
+    chargerAdminServices();
+  } catch (err) { alert(err.message); }
+});
+
+async function chargerAdminServices() {
+  const conteneur = document.getElementById('listeAdminServices');
+  conteneur.innerHTML = '<p>Chargement...</p>';
+  try {
+    const { services } = await appelApi('/admin/services');
+    if (!services.length) { conteneur.innerHTML = '<p>Aucun service pour le moment.</p>'; return; }
+    conteneur.innerHTML = `
+      <table class="liste">
+        <thead><tr><th></th><th>Titre</th><th>Ordre</th><th>Statut</th><th></th></tr></thead>
+        <tbody>
+          ${services.map((s) => `
+            <tr>
+              <td style="font-size:1.3rem;">${s.icone}</td>
+              <td>${s.titre}</td>
+              <td>${s.ordre}</td>
+              <td><span class="etiquette ${s.actif ? 'etiquette-valide' : 'etiquette-attente'}">${s.actif ? 'Actif' : 'Masqué'}</span></td>
+              <td>
+                <button class="btn btn-contour" onclick='editerService(${JSON.stringify(s)})'>Modifier</button>
+                <button class="btn btn-danger" onclick="supprimerService(${s.id})">Supprimer</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+  } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+function editerService(s) {
+  document.getElementById('serviceId').value = s.id;
+  document.getElementById('serviceIcone').value = s.icone;
+  document.getElementById('serviceTitre').value = s.titre;
+  document.getElementById('serviceDescription').value = s.description || '';
+  document.getElementById('serviceOrdre').value = s.ordre;
+  document.getElementById('titreFormService').textContent = 'Modifier le service';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+async function supprimerService(id) {
+  if (!confirm('Supprimer ce service ?')) return;
+  await appelApi(`/admin/services/${id}`, { method: 'DELETE' });
+  chargerAdminServices();
+}
+
+/* ===== ÉVÉNEMENTS ===== */
+function resetFormEvenement() {
+  document.getElementById('evenementId').value = '';
+  document.getElementById('evenementType').value = 'seminaire';
+  document.getElementById('evenementTitre').value = '';
+  document.getElementById('evenementDescription').value = '';
+  document.getElementById('evenementLieu').value = '';
+  document.getElementById('evenementDateDebut').value = '';
+  document.getElementById('evenementDateFin').value = '';
+  document.getElementById('evenementOrdre').value = 0;
+  document.getElementById('titreFormEvenement').textContent = 'Ajouter un événement';
+}
+
+document.getElementById('formEvenement').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('evenementId').value;
+  const donnees = new FormData();
+  donnees.append('type', document.getElementById('evenementType').value);
+  donnees.append('titre', document.getElementById('evenementTitre').value);
+  donnees.append('description', document.getElementById('evenementDescription').value);
+  donnees.append('lieu', document.getElementById('evenementLieu').value);
+  donnees.append('date_debut', document.getElementById('evenementDateDebut').value);
+  donnees.append('date_fin', document.getElementById('evenementDateFin').value);
+  donnees.append('ordre', document.getElementById('evenementOrdre').value);
+  const fichier = document.getElementById('evenementImage').files[0];
+  if (fichier) donnees.append('image', fichier);
+
+  try {
+    const url = id ? `/admin/evenements/${id}` : '/admin/evenements';
+    await appelApi(url, { method: id ? 'PUT' : 'POST', corpsFormData: donnees });
+    resetFormEvenement();
+    document.getElementById('evenementImage').value = '';
+    chargerAdminEvenements();
+  } catch (err) { alert(err.message); }
+});
+
+async function chargerAdminEvenements() {
+  const conteneur = document.getElementById('listeAdminEvenements');
+  conteneur.innerHTML = '<p>Chargement...</p>';
+  try {
+    const { evenements } = await appelApi('/admin/evenements');
+    if (!evenements.length) { conteneur.innerHTML = '<p>Aucun événement pour le moment.</p>'; return; }
+    conteneur.innerHTML = `
+      <table class="liste">
+        <thead><tr><th></th><th>Titre</th><th>Type</th><th>Date</th><th></th></tr></thead>
+        <tbody>
+          ${evenements.map((ev) => `
+            <tr>
+              <td>${ev.image_path ? `<img class="miniature" src="/uploads/${ev.image_path}">` : '—'}</td>
+              <td>${ev.titre}</td>
+              <td>${ev.type}</td>
+              <td>${ev.date_debut ? new Date(ev.date_debut).toLocaleDateString('fr-FR') : '—'}</td>
+              <td>
+                <button class="btn btn-contour" onclick='editerEvenement(${JSON.stringify(ev).replace(/'/g, "&#39;")})'>Modifier</button>
+                <button class="btn btn-danger" onclick="supprimerEvenement(${ev.id})">Supprimer</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+  } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+function editerEvenement(ev) {
+  document.getElementById('evenementId').value = ev.id;
+  document.getElementById('evenementType').value = ev.type;
+  document.getElementById('evenementTitre').value = ev.titre;
+  document.getElementById('evenementDescription').value = ev.description || '';
+  document.getElementById('evenementLieu').value = ev.lieu || '';
+  document.getElementById('evenementDateDebut').value = ev.date_debut ? ev.date_debut.substring(0, 10) : '';
+  document.getElementById('evenementDateFin').value = ev.date_fin ? ev.date_fin.substring(0, 10) : '';
+  document.getElementById('evenementOrdre').value = ev.ordre;
+  document.getElementById('titreFormEvenement').textContent = 'Modifier l\'événement';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+async function supprimerEvenement(id) {
+  if (!confirm('Supprimer cet événement ?')) return;
+  await appelApi(`/admin/evenements/${id}`, { method: 'DELETE' });
+  chargerAdminEvenements();
+}
+
+/* ===== COLLABORATEURS ===== */
+function resetFormCollaborateur() {
+  document.getElementById('collaborateurId').value = '';
+  document.getElementById('collaborateurNom').value = '';
+  document.getElementById('collaborateurPoste').value = '';
+  document.getElementById('collaborateurBio').value = '';
+  document.getElementById('collaborateurOrdre').value = 0;
+  document.getElementById('titreFormCollaborateur').textContent = 'Ajouter un collaborateur';
+}
+
+document.getElementById('formCollaborateur').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('collaborateurId').value;
+  const donnees = new FormData();
+  donnees.append('nom', document.getElementById('collaborateurNom').value);
+  donnees.append('poste', document.getElementById('collaborateurPoste').value);
+  donnees.append('bio', document.getElementById('collaborateurBio').value);
+  donnees.append('ordre', document.getElementById('collaborateurOrdre').value);
+  const fichier = document.getElementById('collaborateurPhoto').files[0];
+  if (fichier) donnees.append('photo', fichier);
+
+  try {
+    const url = id ? `/admin/collaborateurs/${id}` : '/admin/collaborateurs';
+    await appelApi(url, { method: id ? 'PUT' : 'POST', corpsFormData: donnees });
+    resetFormCollaborateur();
+    document.getElementById('collaborateurPhoto').value = '';
+    chargerAdminCollaborateurs();
+  } catch (err) { alert(err.message); }
+});
+
+async function chargerAdminCollaborateurs() {
+  const conteneur = document.getElementById('listeAdminCollaborateurs');
+  conteneur.innerHTML = '<p>Chargement...</p>';
+  try {
+    const { collaborateurs } = await appelApi('/admin/collaborateurs');
+    if (!collaborateurs.length) { conteneur.innerHTML = '<p>Aucun collaborateur pour le moment.</p>'; return; }
+    conteneur.innerHTML = `
+      <table class="liste">
+        <thead><tr><th></th><th>Nom</th><th>Poste</th><th></th></tr></thead>
+        <tbody>
+          ${collaborateurs.map((c) => `
+            <tr>
+              <td>${c.photo_path ? `<img class="miniature" style="border-radius:50%;" src="/uploads/${c.photo_path}">` : '—'}</td>
+              <td>${c.nom}</td>
+              <td>${c.poste || '—'}</td>
+              <td>
+                <button class="btn btn-contour" onclick='editerCollaborateur(${JSON.stringify(c).replace(/'/g, "&#39;")})'>Modifier</button>
+                <button class="btn btn-danger" onclick="supprimerCollaborateur(${c.id})">Supprimer</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+  } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+function editerCollaborateur(c) {
+  document.getElementById('collaborateurId').value = c.id;
+  document.getElementById('collaborateurNom').value = c.nom;
+  document.getElementById('collaborateurPoste').value = c.poste || '';
+  document.getElementById('collaborateurBio').value = c.bio || '';
+  document.getElementById('collaborateurOrdre').value = c.ordre;
+  document.getElementById('titreFormCollaborateur').textContent = 'Modifier le collaborateur';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+async function supprimerCollaborateur(id) {
+  if (!confirm('Supprimer ce collaborateur ?')) return;
+  await appelApi(`/admin/collaborateurs/${id}`, { method: 'DELETE' });
+  chargerAdminCollaborateurs();
+}
+
+/* ===== MESSAGES DE CONTACT ===== */
+async function chargerMessages() {
+  const conteneur = document.getElementById('listeMessages');
+  conteneur.innerHTML = '<p>Chargement...</p>';
+  try {
+    const { messages } = await appelApi('/admin/messages-contact');
+    if (!messages.length) { conteneur.innerHTML = '<p>Aucun message reçu pour le moment.</p>'; return; }
+    conteneur.innerHTML = `
+      <table class="liste">
+        <thead><tr><th>Statut</th><th>Nom</th><th>Contact</th><th>Sujet</th><th>Message</th><th>Reçu le</th><th></th></tr></thead>
+        <tbody>
+          ${messages.map((m) => `
+            <tr>
+              <td><span class="etiquette ${m.lu ? 'etiquette-valide' : 'etiquette-attente'}">${m.lu ? 'Lu' : 'Nouveau'}</span></td>
+              <td>${m.nom}</td>
+              <td>${m.email}${m.telephone ? '<br>' + m.telephone : ''}</td>
+              <td>${m.sujet || '—'}</td>
+              <td style="max-width:260px;">${m.message}</td>
+              <td>${new Date(m.created_at).toLocaleDateString('fr-FR')}</td>
+              <td>
+                ${!m.lu ? `<button class="btn btn-vert" onclick="marquerLu(${m.id})">Marquer lu</button>` : ''}
+                <button class="btn btn-danger" onclick="supprimerMessage(${m.id})">Supprimer</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+  } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+async function marquerLu(id) { await appelApi(`/admin/messages-contact/${id}/lu`, { method: 'POST' }); chargerMessages(); }
+async function supprimerMessage(id) {
+  if (!confirm('Supprimer ce message ?')) return;
+  await appelApi(`/admin/messages-contact/${id}`, { method: 'DELETE' });
+  chargerMessages();
+}
+
+/* ===== CONTENU HERO (carrousel) ===== */
+function resetFormHero() {
+  document.getElementById('heroId').value = '';
+  document.getElementById('heroPage').value = 'accueil';
+  document.getElementById('heroSlogan').value = '';
+  document.getElementById('heroSousTexte').value = '';
+  document.getElementById('heroOrdre').value = 0;
+  document.getElementById('titreFormHero').textContent = 'Ajouter une diapositive';
+}
+
+document.getElementById('formHero').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = document.getElementById('heroId').value;
+  const donnees = new FormData();
+  donnees.append('page_cle', document.getElementById('heroPage').value);
+  donnees.append('slogan', document.getElementById('heroSlogan').value);
+  donnees.append('sous_texte', document.getElementById('heroSousTexte').value);
+  donnees.append('ordre', document.getElementById('heroOrdre').value);
+  const fichier = document.getElementById('heroImage').files[0];
+  if (fichier) donnees.append('image', fichier);
+
+  try {
+    const url = id ? `/admin/contenu-hero/${id}` : '/admin/contenu-hero';
+    await appelApi(url, { method: id ? 'PUT' : 'POST', corpsFormData: donnees });
+    resetFormHero();
+    document.getElementById('heroImage').value = '';
+    chargerAdminHero();
+  } catch (err) { alert(err.message); }
+});
+
+async function chargerAdminHero() {
+  const conteneur = document.getElementById('listeAdminHero');
+  conteneur.innerHTML = '<p>Chargement...</p>';
+  try {
+    const { diapositives } = await appelApi('/admin/contenu-hero');
+    if (!diapositives.length) { conteneur.innerHTML = '<p>Aucune diapositive pour le moment.</p>'; return; }
+    conteneur.innerHTML = `
+      <table class="liste">
+        <thead><tr><th></th><th>Page</th><th>Slogan</th><th></th></tr></thead>
+        <tbody>
+          ${diapositives.map((d) => `
+            <tr>
+              <td>${d.image_path ? `<img class="miniature" src="/uploads/${d.image_path}">` : '—'}</td>
+              <td><span class="badge-page">${d.page_cle}</span></td>
+              <td>${d.slogan}</td>
+              <td>
+                <button class="btn btn-contour" onclick='editerHero(${JSON.stringify(d).replace(/'/g, "&#39;")})'>Modifier</button>
+                <button class="btn btn-danger" onclick="supprimerHero(${d.id})">Supprimer</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+  } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+function editerHero(d) {
+  document.getElementById('heroId').value = d.id;
+  document.getElementById('heroPage').value = d.page_cle;
+  document.getElementById('heroSlogan').value = d.slogan;
+  document.getElementById('heroSousTexte').value = d.sous_texte || '';
+  document.getElementById('heroOrdre').value = d.ordre;
+  document.getElementById('titreFormHero').textContent = 'Modifier la diapositive';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+async function supprimerHero(id) {
+  if (!confirm('Supprimer cette diapositive ?')) return;
+  await appelApi(`/admin/contenu-hero/${id}`, { method: 'DELETE' });
+  chargerAdminHero();
+}
+
+chargerStats();
+chargerEnAttente();
+</script>
+</body>
+</html>
 
 async function chargerStats() {
   try {

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nos services & activités — APRJ</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="/img/favicon.png">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div id="aprjIntro" class="aprj-intro">
+  <div class="aprj-intro-anneau"></div>
+  <img src="/img/logo-embleme.png" alt="Logo APRJ" class="aprj-intro-logo">
+  <div class="aprj-intro-texte">
+    <strong>APRJ</strong>
+    <span>Ensemble pour demain</span>
+  </div>
+</div>
+<script>
+(function(){
+  var overlay = document.getElementById('aprjIntro');
+  if (!overlay) return;
+  if (sessionStorage.getItem('aprj_intro_vu')) {
+    overlay.style.display = 'none';
+    return;
+  }
+  sessionStorage.setItem('aprj_intro_vu', '1');
+  setTimeout(function(){
+    overlay.classList.add('aprj-intro-sortie');
+    setTimeout(function(){ if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 700);
+  }, 1500);
+})();
+</script>
+
+<header class="entete">
+  <div class="entete-bandeau">
+    <a href="/" class="marque"><img src="/img/logo-embleme.png" alt="Logo APRJ" class="marque-logo"><span>APRJ<small>ENSEMBLE POUR DEMAIN</small></span></a>
+    <nav class="nav-liens">
+      <a href="/services.html">Services & activités</a>
+      <a href="/collaborateurs.html">Collaborateurs</a>
+      <a href="/contact.html">Contact</a>
+      <a href="/connexion.html">Se connecter</a>
+    </nav>
+    <a href="/inscription-candidat.html" class="btn btn-or">Créer un compte</a>
+  </div>
+</header>
+
+<div class="carrousel-hero" id="carrouselServices"></div>
+
+<section class="section">
+  <div class="conteneur">
+    <div class="section-titre">
+      <h2>Nos services</h2>
+      <p>Tout ce qu'APRJ met en place pour préparer et connecter les talents.</p>
+    </div>
+    <div class="grille-cartes" id="listeServices">
+      <div class="squelette" style="height:150px;"></div><div class="squelette" style="height:150px;"></div><div class="squelette" style="height:150px;"></div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt">
+  <div class="conteneur">
+    <div class="section-titre">
+      <h2>Séminaires, festivals & formations</h2>
+      <p>Nos activités et événements à venir ou récents.</p>
+    </div>
+    <div class="grille-evenements" id="listeEvenements">
+      <div class="squelette" style="height:220px;"></div><div class="squelette" style="height:220px;"></div><div class="squelette" style="height:220px;"></div>
+    </div>
+  </div>
+</section>
+
+<footer class="pied"><div class="conteneur">&copy; 2026 Association A.P.R.J. — Ensemble pour demain.</div></footer>
+
+<script src="/js/commun.js"></script>
+<script src="/js/carrousel.js"></script>
+<script>
+initCarrousel('services', 'carrouselServices');
+
+const libellesType = { seminaire: 'Séminaire', festival: 'Festival', formation: 'Formation', autre: 'Événement' };
+
+(async () => {
+  const conteneur = document.getElementById('listeServices');
+  try {
+    const { services } = await appelApi('/services');
+    if (!services.length) { conteneur.innerHTML = '<p style="text-align:center;">Contenu bientôt disponible — revenez prochainement.</p>'; return; }
+    conteneur.innerHTML = services.map((s) => `
+      <div class="carte reveal">
+        <div class="carte-icone">${s.icone}</div>
+        <h3>${s.titre}</h3>
+        <p>${s.description || ''}</p>
+      </div>
+    `).join('');
+    window.reveler(conteneur);
+  } catch (e) { conteneur.innerHTML = '<p style="text-align:center;">Contenu bientôt disponible.</p>'; }
+})();
+
+(async () => {
+  const conteneur = document.getElementById('listeEvenements');
+  try {
+    const { evenements } = await appelApi('/evenements');
+    if (!evenements.length) { conteneur.innerHTML = '<p style="text-align:center;">Aucun événement programmé pour le moment.</p>'; return; }
+    conteneur.innerHTML = evenements.map((ev) => `
+      <div class="evenement-carte reveal">
+        <div class="evenement-image" style="${ev.image_path ? `background-image:url('/uploads/${ev.image_path}')` : ''}"></div>
+        <div class="evenement-corps">
+          <span class="etiquette-type">${libellesType[ev.type] || 'Événement'}</span>
+          <h3>${ev.titre}</h3>
+          <p>${ev.description || ''}</p>
+          ${ev.lieu ? `<p style="font-size:0.85rem;">📍 ${ev.lieu}</p>` : ''}
+          ${ev.date_debut ? `<div class="evenement-date">${new Date(ev.date_debut).toLocaleDateString('fr-FR')}${ev.date_fin ? ' → ' + new Date(ev.date_fin).toLocaleDateString('fr-FR') : ''}</div>` : ''}
+        </div>
+      </div>
+    `).join('');
+    window.reveler(conteneur);
+  } catch (e) { conteneur.innerHTML = '<p style="text-align:center;">Contenu bientôt disponible.</p>'; }
+})();
+</script>
+</body>
+</html>

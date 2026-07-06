@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Inscription employeur — APRJ</title>
+<title>Contact — APRJ</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="/img/favicon.png">
 <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
@@ -39,61 +39,53 @@
     <a href="/" class="marque"><img src="/img/logo-embleme.png" alt="Logo APRJ" class="marque-logo"><span>APRJ<small>ENSEMBLE POUR DEMAIN</small></span></a>
     <nav class="nav-liens">
       <a href="/services.html">Services & activités</a>
+      <a href="/collaborateurs.html">Collaborateurs</a>
       <a href="/contact.html">Contact</a>
       <a href="/connexion.html">Se connecter</a>
     </nav>
-    <a href="/inscription-candidat.html" class="btn btn-contour">Espace candidat</a>
+    <a href="/inscription-candidat.html" class="btn btn-or">Créer un compte</a>
   </div>
 </header>
 
+<div class="carrousel-hero" id="carrouselContact"></div>
+
 <section class="section">
-  <div class="conteneur">
-    <div class="section-titre">
-      <h2>Enregistre ton entreprise</h2>
-      <p>Ton compte sera activé après vérification par l'APRJ, afin de garantir la fiabilité des demandes.</p>
+  <div class="conteneur contact-grille">
+    <div>
+      <h2>Contacte-nous</h2>
+      <p>Une question sur ton profil, une demande entreprise ou une information sur nos formations : écris-nous.</p>
+      <ul class="coordonnees-liste" style="margin-top:24px;">
+        <li><span class="icone">📍</span> Douala, Cameroun</li>
+        <li><span class="icone">📞</span> +237 6 12 34 56 78</li>
+        <li><span class="icone">✉️</span> contact@aprj.org</li>
+      </ul>
     </div>
 
-    <form class="carte-formulaire" id="formEmployeur">
+    <form class="carte-formulaire" id="formContact" style="margin:0;">
       <div id="zoneMessage"></div>
-
-      <h3>Compte</h3>
+      <div class="champ">
+        <label for="nom">Nom complet *</label>
+        <input type="text" id="nom" name="nom" required>
+      </div>
       <div class="ligne-deux">
         <div class="champ">
-          <label for="email">Email professionnel *</label>
+          <label for="email">Email *</label>
           <input type="email" id="email" name="email" required>
         </div>
         <div class="champ">
-          <label for="telephone">Ton numéro (contact) *</label>
-          <input type="tel" id="telephone" name="telephone" placeholder="+237 6XX XX XX XX" required>
+          <label for="telephone">Téléphone</label>
+          <input type="tel" id="telephone" name="telephone">
         </div>
       </div>
       <div class="champ">
-        <label for="mot_de_passe">Mot de passe *</label>
-        <input type="password" id="mot_de_passe" name="mot_de_passe" minlength="6" required>
-      </div>
-
-      <h3 style="margin-top:28px;">Entreprise</h3>
-      <div class="champ">
-        <label for="nom_societe">Nom de la société *</label>
-        <input type="text" id="nom_societe" name="nom_societe" required>
-      </div>
-      <div class="ligne-deux">
-        <div class="champ">
-          <label for="secteur">Secteur d'activité</label>
-          <input type="text" id="secteur" name="secteur" placeholder="Assurance, BTP, Commerce...">
-        </div>
-        <div class="champ">
-          <label for="ville">Ville</label>
-          <input type="text" id="ville" name="ville">
-        </div>
+        <label for="sujet">Sujet</label>
+        <input type="text" id="sujet" name="sujet" placeholder="Candidature, partenariat, information...">
       </div>
       <div class="champ">
-        <label for="telephone_societe">Numéro affilié à la société *</label>
-        <input type="tel" id="telephone_societe" name="telephone_societe" placeholder="Numéro officiel de l'entreprise" required>
-        <div class="aide">Ce numéro sert à vérifier que le compte représente bien la société.</div>
+        <label for="message">Message *</label>
+        <textarea id="message" name="message" rows="4" required></textarea>
       </div>
-
-      <button type="submit" class="btn btn-or btn-large btn-bloc" id="btnEnvoyer">Créer mon compte entreprise</button>
+      <button type="submit" class="btn btn-or btn-large btn-bloc" id="btnEnvoyer">Envoyer le message</button>
     </form>
   </div>
 </section>
@@ -101,25 +93,32 @@
 <footer class="pied"><div class="conteneur">&copy; 2026 Association A.P.R.J. — Ensemble pour demain.</div></footer>
 
 <script src="/js/commun.js"></script>
+<script src="/js/carrousel.js"></script>
 <script>
-document.getElementById('formEmployeur').addEventListener('submit', async (e) => {
+initCarrousel('contact', 'carrouselContact');
+
+document.getElementById('formContact').addEventListener('submit', async (e) => {
   e.preventDefault();
   const zone = document.getElementById('zoneMessage');
   const bouton = document.getElementById('btnEnvoyer');
   bouton.disabled = true;
   bouton.textContent = 'Envoi en cours...';
-
   const donnees = Object.fromEntries(new FormData(e.target).entries());
-
   try {
-    await appelApi('/employeurs/inscription', { method: 'POST', corpsJson: donnees });
-    afficherMessage(zone, 'Compte créé ! Il sera activé après vérification par l\'APRJ. Tu recevras un accès une fois validé.', 'succes');
+    const reponse = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(donnees)
+    });
+    const resultat = await reponse.json();
+    if (!reponse.ok) throw new Error(resultat.erreur || 'Erreur lors de l\'envoi.');
+    afficherMessage(zone, resultat.message, 'succes');
     e.target.reset();
   } catch (err) {
     afficherMessage(zone, err.message, 'erreur');
   } finally {
     bouton.disabled = false;
-    bouton.textContent = 'Créer mon compte entreprise';
+    bouton.textContent = 'Envoyer le message';
   }
 });
 </script>

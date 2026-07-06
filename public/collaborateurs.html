@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Connexion — APRJ</title>
+<title>Nos collaborateurs — APRJ</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="/img/favicon.png">
 <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
@@ -39,63 +39,53 @@
     <a href="/" class="marque"><img src="/img/logo-embleme.png" alt="Logo APRJ" class="marque-logo"><span>APRJ<small>ENSEMBLE POUR DEMAIN</small></span></a>
     <nav class="nav-liens">
       <a href="/services.html">Services & activités</a>
+      <a href="/collaborateurs.html">Collaborateurs</a>
       <a href="/contact.html">Contact</a>
+      <a href="/connexion.html">Se connecter</a>
     </nav>
-    <a href="/" class="btn btn-contour">Retour à l'accueil</a>
+    <a href="/inscription-candidat.html" class="btn btn-or">Créer un compte</a>
   </div>
 </header>
+
+<div class="carrousel-hero" id="carrouselCollab"></div>
 
 <section class="section">
   <div class="conteneur">
     <div class="section-titre">
-      <h2>Se connecter</h2>
-      <p>Réservé aux comptes employeur et administrateur.</p>
+      <h2>Nos collaborateurs</h2>
+      <p>L'équipe qui accompagne les candidats et les entreprises au quotidien.</p>
     </div>
-
-    <form class="carte-formulaire" id="formConnexion" style="max-width:440px;">
-      <div id="zoneMessage"></div>
-      <div class="champ">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" required>
-      </div>
-      <div class="champ">
-        <label for="mot_de_passe">Mot de passe</label>
-        <input type="password" id="mot_de_passe" name="mot_de_passe" required>
-      </div>
-      <button type="submit" class="btn btn-or btn-large btn-bloc" id="btnEnvoyer">Se connecter</button>
-    </form>
+    <div class="grille-collaborateurs" id="listeCollaborateurs">
+      <div class="squelette" style="height:220px;"></div><div class="squelette" style="height:220px;"></div><div class="squelette" style="height:220px;"></div>
+    </div>
   </div>
 </section>
 
 <footer class="pied"><div class="conteneur">&copy; 2026 Association A.P.R.J. — Ensemble pour demain.</div></footer>
 
 <script src="/js/commun.js"></script>
+<script src="/js/carrousel.js"></script>
 <script>
-document.getElementById('formConnexion').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const zone = document.getElementById('zoneMessage');
-  const bouton = document.getElementById('btnEnvoyer');
-  bouton.disabled = true;
-  bouton.textContent = 'Connexion...';
+initCarrousel('collaborateurs', 'carrouselCollab');
 
-  const donnees = Object.fromEntries(new FormData(e.target).entries());
-
+(async () => {
+  const conteneur = document.getElementById('listeCollaborateurs');
   try {
-    const resultat = await appelApi('/auth/connexion', { method: 'POST', corpsJson: donnees });
-    enregistrerSession(resultat.token, resultat.role, resultat.email);
-    if (resultat.role === 'admin') {
-      window.location.href = '/dashboard-admin.html';
-    } else if (resultat.role === 'employeur') {
-      window.location.href = '/dashboard-employeur.html';
-    } else {
-      window.location.href = '/';
-    }
-  } catch (err) {
-    afficherMessage(zone, err.message, 'erreur');
-    bouton.disabled = false;
-    bouton.textContent = 'Se connecter';
-  }
-});
+    const { collaborateurs } = await appelApi('/collaborateurs');
+    if (!collaborateurs.length) { conteneur.innerHTML = '<p style="text-align:center;">Contenu bientôt disponible.</p>'; return; }
+    conteneur.innerHTML = collaborateurs.map((c) => `
+      <div class="collab-carte reveal">
+        <div class="collab-photo">
+          ${c.photo_path ? `<img src="/uploads/${c.photo_path}" alt="${c.nom}">` : c.nom.charAt(0)}
+        </div>
+        <h3>${c.nom}</h3>
+        ${c.poste ? `<div class="collab-poste">${c.poste}</div>` : ''}
+        <p>${c.bio || ''}</p>
+      </div>
+    `).join('');
+    window.reveler(conteneur);
+  } catch (e) { conteneur.innerHTML = '<p style="text-align:center;">Contenu bientôt disponible.</p>'; }
+})();
 </script>
 </body>
 </html>

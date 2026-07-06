@@ -3,15 +3,40 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Espace employeur — Activa Recrutement</title>
+<title>Espace employeur — APRJ</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="/img/favicon.png">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+<div id="aprjIntro" class="aprj-intro">
+  <div class="aprj-intro-anneau"></div>
+  <img src="/img/logo-embleme.png" alt="Logo APRJ" class="aprj-intro-logo">
+  <div class="aprj-intro-texte">
+    <strong>APRJ</strong>
+    <span>Ensemble pour demain</span>
+  </div>
+</div>
+<script>
+(function(){
+  var overlay = document.getElementById('aprjIntro');
+  if (!overlay) return;
+  if (sessionStorage.getItem('aprj_intro_vu')) {
+    overlay.style.display = 'none';
+    return;
+  }
+  sessionStorage.setItem('aprj_intro_vu', '1');
+  setTimeout(function(){
+    overlay.classList.add('aprj-intro-sortie');
+    setTimeout(function(){ if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 700);
+  }, 1500);
+})();
+</script>
 
 <header class="entete">
   <div class="entete-bandeau">
-    <a href="/" class="marque"><span class="pastille">A</span><span>Activa Recrutement<small>ESPACE EMPLOYEUR</small></span></a>
+    <a href="/" class="marque"><img src="/img/logo-embleme.png" alt="Logo APRJ" class="marque-logo"><span>APRJ<small>ESPACE EMPLOYEUR</small></span></a>
     <nav class="nav-liens"></nav>
     <a href="#" class="btn btn-contour-clair" onclick="deconnecter()">Se déconnecter</a>
   </div>

@@ -3,53 +3,81 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Activa Recrutement — Trouver le bon talent, prêt à travailler</title>
+<title>APRJ — Trouver le bon talent, prêt à travailler</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="/img/favicon.png">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+<div id="aprjIntro" class="aprj-intro">
+  <div class="aprj-intro-anneau"></div>
+  <img src="/img/logo-embleme.png" alt="Logo APRJ" class="aprj-intro-logo">
+  <div class="aprj-intro-texte">
+    <strong>APRJ</strong>
+    <span>Ensemble pour demain</span>
+  </div>
+</div>
+<script>
+(function(){
+  var overlay = document.getElementById('aprjIntro');
+  if (!overlay) return;
+  if (sessionStorage.getItem('aprj_intro_vu')) {
+    overlay.style.display = 'none';
+    return;
+  }
+  sessionStorage.setItem('aprj_intro_vu', '1');
+  setTimeout(function(){
+    overlay.classList.add('aprj-intro-sortie');
+    setTimeout(function(){ if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 700);
+  }, 1500);
+})();
+</script>
 
 <header class="entete">
   <div class="entete-bandeau">
     <a href="/" class="marque">
-      <span class="pastille">A</span>
-      <span>Activa Recrutement<small>UN SERVICE ACTIVA ASSURANCE</small></span>
+      <img src="/img/logo-embleme.png" alt="Logo APRJ" class="marque-logo">
+      <span>APRJ<small>ENSEMBLE POUR DEMAIN</small></span>
     </a>
     <nav class="nav-liens">
-      <a href="#comment-ca-marche">Comment ça marche</a>
-      <a href="#pour-qui">Pour qui ?</a>
+      <a href="/services.html">Services & activités</a>
+      <a href="/collaborateurs.html">Collaborateurs</a>
+      <a href="/contact.html">Contact</a>
       <a href="/connexion.html">Se connecter</a>
     </nav>
     <a href="#inscription" class="btn btn-or">Créer un compte</a>
   </div>
 </header>
 
-<section class="hero">
-  <div class="conteneur hero-grille">
+<div class="carrousel-hero" id="carrouselAccueil"></div>
+
+<section class="section" id="comment-ca-marche">
+  <div class="conteneur hero-grille" style="align-items:center;">
     <div>
-      <span class="hero-oeillet hero-anim">Recrutement · Formation · Entretien réel</span>
-      <h1 class="hero-anim">Le bon poste ne suffit pas.<br>Il faut être prêt à l'occuper.</h1>
-      <p class="intro hero-anim">Activa Recrutement connecte les entreprises à des talents formés et préparés : parcours pédagogique vérifié, mise en situation d'entretien, et mise en relation directe — pas juste un CV qui traîne.</p>
-      <div class="hero-actions hero-anim">
-        <a href="/inscription-candidat.html" class="btn btn-or btn-large">Je cherche un emploi <span class="btn-fleche">→</span></a>
-        <a href="/inscription-employeur.html" class="btn btn-contour-clair btn-large">Je recrute <span class="btn-fleche">→</span></a>
+      <span class="hero-oeillet" style="color:var(--marine); border-color:rgba(11,31,58,0.25);">Recrutement · Formation · Entretien réel</span>
+      <h2>Un parcours complet, pas juste une annonce</h2>
+      <p class="intro" style="color:var(--ardoise-douce);">APRJ connecte les entreprises à des talents formés et préparés : parcours pédagogique vérifié, mise en situation d'entretien, et mise en relation directe.</p>
+      <div class="hero-actions">
+        <a href="/inscription-candidat.html" class="btn btn-or btn-large">Je cherche un emploi</a>
+        <a href="/inscription-employeur.html" class="btn btn-contour btn-large">Je recrute</a>
       </div>
     </div>
-    <div class="escalier hero-anim" id="comment-ca-marche">
-      <div class="escalier-marche">
+    <div class="escalier" style="background:var(--marine); padding:28px; border-radius:14px;">
+      <div class="escalier-marche reveal">
         <span class="escalier-num">1</span>
         <div class="escalier-texte"><strong>Inscription</strong><span>Parcours, atouts et CV enregistrés en quelques minutes</span></div>
       </div>
-      <div class="escalier-marche">
+      <div class="escalier-marche reveal">
         <span class="escalier-num">2</span>
         <div class="escalier-texte"><strong>Préparation</strong><span>Formation courte adaptée au poste recherché</span></div>
       </div>
-      <div class="escalier-marche">
+      <div class="escalier-marche reveal">
         <span class="escalier-num">3</span>
         <div class="escalier-texte"><strong>Entretien en conditions réelles</strong><span>Simulation avant la vraie rencontre employeur</span></div>
       </div>
-      <div class="escalier-marche">
+      <div class="escalier-marche reveal">
         <span class="escalier-num">4</span>
         <div class="escalier-texte"><strong>Mise en relation</strong><span>L'entreprise recherche et contacte le profil validé</span></div>
       </div>
@@ -57,46 +85,22 @@
   </div>
 </section>
 
-<!-- Remplace ces chiffres par les vrais volumes d'Activa Recrutement une fois disponibles -->
-<section class="stats-barre">
-  <div class="conteneur stats-grille reveal-groupe">
-    <div class="stat-item reveal-enfant">
-      <div class="stat-nombre" data-compte="120">0</div>
-      <div class="stat-label">Entreprises partenaires</div>
-    </div>
-    <div class="stat-item reveal-enfant">
-      <div class="stat-nombre" data-compte="3000">0</div>
-      <div class="stat-label">Candidats inscrits</div>
-    </div>
-    <div class="stat-item reveal-enfant">
-      <div class="stat-nombre" data-compte="480">0</div>
-      <div class="stat-label">Mises en relation réalisées</div>
-    </div>
-    <div class="stat-item reveal-enfant">
-      <div class="stat-nombre" data-compte="97" data-suffixe="%">0</div>
-      <div class="stat-label">Recruteurs satisfaits</div>
-    </div>
-  </div>
-</section>
-
 <section class="section" id="pour-qui">
   <div class="conteneur">
-    <div class="section-titre reveal">
+    <div class="section-titre">
       <h2>Deux profils, un seul parcours</h2>
       <p>Choisis ton espace pour commencer.</p>
     </div>
-    <div class="choix-grille reveal-groupe">
-      <a href="/inscription-candidat.html" class="choix-carte reveal-enfant">
+    <div class="choix-grille">
+      <a href="/inscription-candidat.html" class="choix-carte reveal">
         <div class="carte-icone">👤</div>
         <h3>Je suis candidat</h3>
-        <p>Renseigne ton parcours pédagogique, ton expérience, tes atouts et dépose ton CV. Ton profil est enregistré et transmis directement à Activa Assurance.</p>
-        <span class="carte-fleche">Créer mon profil <span>→</span></span>
+        <p>Renseigne ton parcours pédagogique, ton expérience, tes atouts et dépose ton CV. Ton profil est enregistré et transmis directement à l'APRJ.</p>
       </a>
-      <a href="/inscription-employeur.html" class="choix-carte reveal-enfant">
+      <a href="/inscription-employeur.html" class="choix-carte reveal">
         <div class="carte-icone">🏢</div>
         <h3>Je suis employeur</h3>
         <p>Enregistre ton entreprise, dépose une demande de poste avec le niveau et les qualifications requises, puis lance une recherche de profils correspondants.</p>
-        <span class="carte-fleche">Déposer une demande <span>→</span></span>
       </a>
     </div>
   </div>
@@ -104,26 +108,26 @@
 
 <section class="section section-alt">
   <div class="conteneur">
-    <div class="section-titre reveal">
-      <h2>Pourquoi Activa Recrutement</h2>
+    <div class="section-titre">
+      <h2>Pourquoi APRJ</h2>
     </div>
-    <div class="grille-cartes reveal-groupe">
-      <div class="carte reveal-enfant">
+    <div class="grille-cartes">
+      <div class="carte reveal">
         <div class="carte-icone">🎯</div>
         <h3>Profils vérifiés</h3>
         <p>Chaque candidat renseigne son parcours réel ; chaque entreprise est vérifiée avant d'accéder aux profils.</p>
       </div>
-      <div class="carte reveal-enfant">
+      <div class="carte reveal">
         <div class="carte-icone">🧭</div>
         <h3>Préparation concrète</h3>
         <p>Formation courte et entretien simulé en conditions réelles avant la mise en relation.</p>
       </div>
-      <div class="carte reveal-enfant">
+      <div class="carte reveal">
         <div class="carte-icone">⚡</div>
         <h3>Recherche instantanée</h3>
         <p>Un poste, un niveau, un domaine : les profils correspondants apparaissent en un clic.</p>
       </div>
-      <div class="carte reveal-enfant">
+      <div class="carte reveal">
         <div class="carte-icone">🔒</div>
         <h3>Confidentialité</h3>
         <p>Les données candidats restent sécurisées et ne sont visibles que par les entreprises validées.</p>
@@ -132,65 +136,72 @@
   </div>
 </section>
 
+<section class="section section-alt">
+  <div class="conteneur">
+    <div class="section-titre">
+      <h2>Nos services & activités</h2>
+      <p>Recrutement, formation, séminaires et festivals — découvre tout ce qu'APRJ propose.</p>
+    </div>
+    <div class="grille-cartes" id="apercuServices">
+      <div class="squelette" style="height:170px;"></div>
+      <div class="squelette" style="height:170px;"></div>
+      <div class="squelette" style="height:170px;"></div>
+      <div class="squelette" style="height:170px;"></div>
+    </div>
+    <div style="text-align:center; margin-top:28px;">
+      <a href="/services.html" class="btn btn-contour">Voir tous nos services & événements</a>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="contact-accueil">
+  <div class="conteneur contact-grille">
+    <div>
+      <h2>Une question ? Contacte-nous</h2>
+      <p>Notre équipe te répond rapidement, que tu sois candidat ou entreprise.</p>
+      <ul class="coordonnees-liste" style="margin-top:20px;">
+        <li><span class="icone">📍</span> Douala, Cameroun</li>
+        <li><span class="icone">📞</span> +237 6 12 34 56 78</li>
+        <li><span class="icone">✉️</span> contact@aprj.org</li>
+      </ul>
+      <a href="/contact.html" class="btn btn-or" style="margin-top:10px;">Ouvrir le formulaire de contact</a>
+    </div>
+    <div class="carte reveal" style="padding:30px;">
+      <h3>Pourquoi nous écrire ?</h3>
+      <p>Question sur ton inscription, ton dossier, un partenariat entreprise ou une demande d'information sur nos formations et événements — écris-nous, nous orientons ta demande vers la bonne personne.</p>
+    </div>
+  </div>
+</section>
+
 <footer class="pied">
   <div class="conteneur">
-    <div class="pied-haut">
-      <div>
-        <h4>Restez informé</h4>
-        <p>Un mail occasionnel dès qu'un nouveau service est disponible.</p>
-      </div>
-      <form class="pied-newsletter" onsubmit="return false;">
-        <input type="email" placeholder="Votre adresse email" required>
-        <button type="submit" class="btn btn-or">S'abonner</button>
-      </form>
-    </div>
-    <div class="pied-bas">
-      &copy; 2026 Activa Assurance — Activa Recrutement. Tous droits réservés.
-    </div>
+    &copy; 2026 Association A.P.R.J. — Ensemble pour demain. Tous droits réservés. ·
+    <a href="/contact.html" style="color:var(--or-clair);">Nous contacter</a>
   </div>
 </footer>
 
+<script src="/js/commun.js"></script>
+<script src="/js/carrousel.js"></script>
 <script>
-// Révélation au défilement
-const elements = document.querySelectorAll('.reveal, .reveal-groupe');
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      entry.target.classList.add('est-visible');
-      observer.unobserve(entry.target);
-    }
-  });
-}, { threshold: 0.15 });
-elements.forEach(el => observer.observe(el));
+initCarrousel('accueil', 'carrouselAccueil');
 
-// Ombre de la barre de navigation au défilement
-const entete = document.querySelector('.entete');
-window.addEventListener('scroll', () => {
-  entete.classList.toggle('entete--scrolled', window.scrollY > 12);
-}, { passive: true });
-
-// Compteurs animés de la barre de chiffres clés
-const compteurs = document.querySelectorAll('.stat-nombre');
-const compteurObserver = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (!entry.isIntersecting) return;
-    const el = entry.target;
-    const cible = parseInt(el.dataset.compte, 10);
-    const suffixe = el.dataset.suffixe || '+';
-    const duree = 1200;
-    const debut = performance.now();
-    function tick(maintenant) {
-      const progres = Math.min((maintenant - debut) / duree, 1);
-      const valeur = Math.floor(progres * cible);
-      el.textContent = progres < 1 ? valeur : cible + suffixe;
-      if (progres < 1) requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-    compteurObserver.unobserve(el);
-  });
-}, { threshold: 0.4 });
-compteurs.forEach(el => compteurObserver.observe(el));
+(async () => {
+  const conteneur = document.getElementById('apercuServices');
+  try {
+    const { services } = await appelApi('/services');
+    if (!services.length) { conteneur.innerHTML = '<p style="text-align:center;">Contenu bientôt disponible.</p>'; return; }
+    conteneur.innerHTML = services.slice(0, 4).map((s) => `
+      <div class="carte reveal">
+        <div class="carte-icone">${s.icone}</div>
+        <h3>${s.titre}</h3>
+        <p>${s.description || ''}</p>
+      </div>
+    `).join('');
+    window.reveler(conteneur);
+  } catch (e) {
+    conteneur.innerHTML = '<p style="text-align:center;">Contenu bientôt disponible.</p>';
+  }
+})();
 </script>
-
 </body>
 </html>

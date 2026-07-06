@@ -3,16 +3,45 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Inscription candidat — Activa Recrutement</title>
+<title>Inscription candidat — APRJ</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="/img/favicon.png">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
+<div id="aprjIntro" class="aprj-intro">
+  <div class="aprj-intro-anneau"></div>
+  <img src="/img/logo-embleme.png" alt="Logo APRJ" class="aprj-intro-logo">
+  <div class="aprj-intro-texte">
+    <strong>APRJ</strong>
+    <span>Ensemble pour demain</span>
+  </div>
+</div>
+<script>
+(function(){
+  var overlay = document.getElementById('aprjIntro');
+  if (!overlay) return;
+  if (sessionStorage.getItem('aprj_intro_vu')) {
+    overlay.style.display = 'none';
+    return;
+  }
+  sessionStorage.setItem('aprj_intro_vu', '1');
+  setTimeout(function(){
+    overlay.classList.add('aprj-intro-sortie');
+    setTimeout(function(){ if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 700);
+  }, 1500);
+})();
+</script>
 
 <header class="entete">
   <div class="entete-bandeau">
-    <a href="/" class="marque"><span class="pastille">A</span><span>Activa Recrutement<small>UN SERVICE ACTIVA ASSURANCE</small></span></a>
-    <nav class="nav-liens"><a href="/connexion.html">Se connecter</a></nav>
+    <a href="/" class="marque"><img src="/img/logo-embleme.png" alt="Logo APRJ" class="marque-logo"><span>APRJ<small>ENSEMBLE POUR DEMAIN</small></span></a>
+    <nav class="nav-liens">
+      <a href="/services.html">Services & activités</a>
+      <a href="/contact.html">Contact</a>
+      <a href="/connexion.html">Se connecter</a>
+    </nav>
     <a href="/inscription-employeur.html" class="btn btn-contour">Espace employeur</a>
   </div>
 </header>
@@ -21,7 +50,7 @@
   <div class="conteneur">
     <div class="section-titre">
       <h2>Crée ton profil candidat</h2>
-      <p>Renseigne ton parcours et dépose ton CV. Ton profil est enregistré et transmis à Activa Assurance.</p>
+      <p>Renseigne ton parcours et dépose ton CV. Ton profil est enregistré et transmis à l'APRJ.</p>
     </div>
 
     <form class="carte-formulaire" id="formCandidat" enctype="multipart/form-data">
@@ -111,7 +140,7 @@
   </div>
 </section>
 
-<footer class="pied"><div class="conteneur">&copy; 2026 Activa Assurance — Activa Recrutement.</div></footer>
+<footer class="pied"><div class="conteneur">&copy; 2026 Association A.P.R.J. — Ensemble pour demain.</div></footer>
 
 <script src="/js/commun.js"></script>
 <script>
@@ -129,7 +158,7 @@ document.getElementById('formCandidat').addEventListener('submit', async (e) => 
     const resultat = await reponse.json();
     if (!reponse.ok) throw new Error(resultat.erreur || 'Erreur lors de l\'inscription.');
 
-    afficherMessage(zone, 'Ton profil a été enregistré avec succès. Activa Assurance a été notifiée. Tu peux être contacté(e) prochainement pour la suite du parcours.', 'succes');
+    afficherMessage(zone, 'Ton profil a été enregistré avec succès. L\'Association A.P.R.J. a été notifiée. Tu peux être contacté(e) prochainement pour la suite du parcours.', 'succes');
     e.target.reset();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err) {

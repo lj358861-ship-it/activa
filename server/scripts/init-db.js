@@ -22,6 +22,18 @@ async function initialiserBaseDeDonnees() {
   await connection.query(schemaSql);
   await connection.changeUser({ database });
 
+  // Migration : ajoute la colonne photo_path à services si elle n'existe pas encore
+  // (nécessaire pour les bases créées avant l'ajout de cette fonctionnalité).
+  const [colonnes] = await connection.query(
+    `SELECT COUNT(*) AS n FROM information_schema.columns
+     WHERE table_schema = ? AND table_name = 'services' AND column_name = 'photo_path'`,
+    [database]
+  );
+  if (colonnes[0].n === 0) {
+    await connection.query('ALTER TABLE services ADD COLUMN photo_path VARCHAR(255) NULL AFTER icone');
+    console.log('[init-db] Colonne photo_path ajoutée à la table services.');
+  }
+
   // Créer le compte admin par défaut s'il n'existe pas
   const [rows] = await connection.query('SELECT id FROM users WHERE role = "admin" LIMIT 1');
   if (rows.length === 0) {

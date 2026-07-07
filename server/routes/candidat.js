@@ -2,6 +2,8 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const pool = require('../db');
 const upload = require('../middleware/upload');
+const uploadImage = require('../middleware/upload-image');
+const { verifierToken, autoriserRoles } = require('../middleware/auth');
 const { envoyerNotificationCandidature } = require('../services/whatsapp');
 
 const router = express.Router();
@@ -77,5 +79,61 @@ router.post(
     }
   }
 );
+
+// Profil du candidat connecté
+router.get('/moi', verifierToken, autoriserRoles('candidat'), async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT c.*, u.email, u.telephone AS telephone_compte FROM candidats c
+       JOIN users u ON u.id = c.user_id WHERE c.user_id = ?`,
+      [req.utilisateur.id]
+    );
+    if (!rows.length) return res.status(404).json({ erreur: 'Profil introuvable.' });
+    res.json({ candidat: rows[0] });
+  } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
+});
+
+// Mise à jour du profil (infos + éventuellement nouvelle photo / nouveau CV)
+router.put(
+  '/moi',
+  verifierToken, autoriserRoles('candidat'),
+  upload.fields([{ name: 'cv', maxCount: 1 }, { name: 'photo', maxCount: 1 }]),
+  async (req, res) => {
+    const { nom_complet, ville, niveau_etude, domaine, parcours_pedagogique, parcours_professionnel, atouts } = req.body;
+    try {
+      const champs = [
+        'nom_complet = ?', 'ville = ?', 'niveau_etude = ?', 'domaine = ?',
+        'parcours_pedagogique = ?', 'parcours_professionnel = ?', 'atouts = ?'
+      ];
+      const valeurs = [
+        nom_complet, ville || null, niveau_etude, domaine,
+        parcours_pedagogique || null, parcours_professionnel || null, atouts || null
+      ];
+      if (req.files?.cv?.[0]) { champs.push('cv_path = ?'); valeurs.push(req.files.cv[0].filename); }
+      if (req.files?.photo?.[0]) { champs.push('photo_path = ?'); valeurs.push(req.files.photo[0].filename); }
+      valeurs.push(req.utilisateur.id);
+      await pool.query(`UPDATE candidats SET ${champs.join(', ')} WHERE user_id = ?`, valeurs);
+      res.json({ message: 'Profil mis à jour.' });
+    } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
+  }
+);
+
+// Notifications du candidat connecté (propositions d'opportunités envoyées par l'APRJ)
+router.get('/notifications', verifierToken, autoriserRoles('candidat'), async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC',
+      [req.utilisateur.id]
+    );
+    res.json({ notifications: rows });
+  } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
+});
+
+router.post('/notifications/:id/lu', verifierToken, autoriserRoles('candidat'), async (req, res) => {
+  try {
+    await pool.query('UPDATE notifications SET lu = TRUE WHERE id = ? AND user_id = ?', [req.params.id, req.utilisateur.id]);
+    res.json({ message: 'Notification marquée comme lue.' });
+  } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
+});
 
 module.exports = router;

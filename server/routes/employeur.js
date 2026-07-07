@@ -85,4 +85,42 @@ router.get('/demandes', verifierToken, autoriserRoles('employeur'), async (req, 
   }
 });
 
+// Supprimer une de ses propres demandes
+router.delete('/demandes/:id', verifierToken, autoriserRoles('employeur'), async (req, res) => {
+  try {
+    const [empRows] = await pool.query('SELECT id FROM employeurs WHERE user_id = ?', [req.utilisateur.id]);
+    if (!empRows.length) return res.status(404).json({ erreur: 'Profil employeur introuvable.' });
+    const [result] = await pool.query('DELETE FROM demandes WHERE id = ? AND employeur_id = ?', [req.params.id, empRows[0].id]);
+    if (result.affectedRows === 0) return res.status(404).json({ erreur: 'Demande introuvable.' });
+    res.json({ message: 'Demande supprimée.' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erreur: 'Erreur serveur.' });
+  }
+});
+
+// Notifications de l'employeur connecté (profils de candidats proposés par l'APRJ)
+router.get('/notifications', verifierToken, autoriserRoles('employeur'), async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC',
+      [req.utilisateur.id]
+    );
+    res.json({ notifications: rows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erreur: 'Erreur serveur.' });
+  }
+});
+
+router.post('/notifications/:id/lu', verifierToken, autoriserRoles('employeur'), async (req, res) => {
+  try {
+    await pool.query('UPDATE notifications SET lu = TRUE WHERE id = ? AND user_id = ?', [req.params.id, req.utilisateur.id]);
+    res.json({ message: 'Notification marquée comme lue.' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erreur: 'Erreur serveur.' });
+  }
+});
+
 module.exports = router;

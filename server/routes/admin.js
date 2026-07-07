@@ -285,4 +285,81 @@ router.delete('/contenu-hero/:id', async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 
+/* ================= DEMANDES (offres employeurs) ================= */
+
+router.get('/demandes', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT d.*, e.nom_societe, e.ville AS ville_employeur
+       FROM demandes d JOIN employeurs e ON e.id = d.employeur_id
+       ORDER BY d.created_at DESC`
+    );
+    res.json({ demandes: rows });
+  } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
+});
+
+router.delete('/demandes/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM demandes WHERE id = ?', [req.params.id]);
+    res.json({ message: 'Demande supprimée.' });
+  } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
+});
+
+/* ================= MISE EN RELATION (matching) ================= */
+
+// Propose un candidat pour une demande : historise la mise en relation et notifie
+// le candidat (opportunité) ET l'employeur (profil complet du candidat, avec photo).
+router.post('/demandes/:demandeId/proposer/:candidatId', async (req, res) => {
+  try {
+    const [demandeRows] = await pool.query(
+      `SELECT d.*, e.user_id AS employeur_user_id, e.nom_societe
+       FROM demandes d JOIN employeurs e ON e.id = d.employeur_id WHERE d.id = ?`,
+      [req.params.demandeId]
+    );
+    if (!demandeRows.length) return res.status(404).json({ erreur: 'Demande introuvable.' });
+    const demande = demandeRows[0];
+
+    const [candidatRows] = await pool.query('SELECT * FROM candidats WHERE id = ?', [req.params.candidatId]);
+    if (!candidatRows.length) return res.status(404).json({ erreur: 'Candidat introuvable.' });
+    const candidat = candidatRows[0];
+
+    await pool.query(
+      'INSERT INTO mises_en_relation (demande_id, candidat_id, score_correspondance) VALUES (?, ?, ?)',
+      [demande.id, candidat.id, req.body.score || 0]
+    );
+
+    // Notification au candidat
+    await pool.query(
+      `INSERT INTO notifications (user_id, type, titre, message, demande_id)
+       VALUES (?, 'opportunite_emploi', ?, ?, ?)`,
+      [
+        candidat.user_id,
+        `Une opportunité chez ${demande.nom_societe}`,
+        `Ton profil a été proposé pour le poste "${demande.poste}" chez ${demande.nom_societe}. L'entreprise a reçu ton profil complet et pourra te contacter directement.`,
+        demande.id
+      ]
+    );
+
+    // Notification à l'employeur avec le profil complet du candidat (photo + tous les détails)
+    const profilComplet = JSON.stringify({
+      nom_complet: candidat.nom_complet,
+      ville: candidat.ville,
+      niveau_etude: candidat.niveau_etude,
+      domaine: candidat.domaine,
+      parcours_pedagogique: candidat.parcours_pedagogique,
+      parcours_professionnel: candidat.parcours_professionnel,
+      atouts: candidat.atouts,
+      photo_path: candidat.photo_path,
+      cv_path: candidat.cv_path
+    });
+    await pool.query(
+      `INSERT INTO notifications (user_id, type, titre, message, demande_id, candidat_id)
+       VALUES (?, 'proposition_candidat', ?, ?, ?, ?)`,
+      [demande.employeur_user_id, `Profil proposé pour "${demande.poste}"`, profilComplet, demande.id, candidat.id]
+    );
+
+    res.json({ message: 'Profil proposé avec succès au candidat et à l\'entreprise.' });
+  } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
+});
+
 module.exports = router;

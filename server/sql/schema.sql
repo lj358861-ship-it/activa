@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS services (
   titre VARCHAR(150) NOT NULL,
   description TEXT,
   icone VARCHAR(10) DEFAULT '📌',
+  photo_path VARCHAR(255) NULL,
   ordre INT DEFAULT 0,
   actif BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

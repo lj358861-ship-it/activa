@@ -93,25 +93,34 @@ router.get('/services', async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 
-router.post('/services', async (req, res) => {
+router.post('/services', uploadImage.single('photo'), async (req, res) => {
   const { titre, description, icone, ordre } = req.body;
   if (!titre) return res.status(400).json({ erreur: 'Le titre est obligatoire.' });
   try {
+    const photoPath = req.file?.filename || null;
     const [result] = await pool.query(
-      'INSERT INTO services (titre, description, icone, ordre) VALUES (?, ?, ?, ?)',
-      [titre, description || null, icone || '📌', ordre || 0]
+      'INSERT INTO services (titre, description, icone, photo_path, ordre) VALUES (?, ?, ?, ?, ?)',
+      [titre, description || null, icone || '📌', photoPath, ordre || 0]
     );
     res.status(201).json({ message: 'Service ajouté.', id: result.insertId });
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 
-router.put('/services/:id', async (req, res) => {
+router.put('/services/:id', uploadImage.single('photo'), async (req, res) => {
   const { titre, description, icone, ordre, actif } = req.body;
   try {
-    await pool.query(
-      'UPDATE services SET titre = ?, description = ?, icone = ?, ordre = ?, actif = ? WHERE id = ?',
-      [titre, description || null, icone || '📌', ordre || 0, actif === undefined ? true : actif, req.params.id]
-    );
+    const photoPath = req.file?.filename || null;
+    if (photoPath) {
+      await pool.query(
+        'UPDATE services SET titre = ?, description = ?, icone = ?, photo_path = ?, ordre = ?, actif = ? WHERE id = ?',
+        [titre, description || null, icone || '📌', photoPath, ordre || 0, actif === undefined ? true : actif, req.params.id]
+      );
+    } else {
+      await pool.query(
+        'UPDATE services SET titre = ?, description = ?, icone = ?, ordre = ?, actif = ? WHERE id = ?',
+        [titre, description || null, icone || '📌', ordre || 0, actif === undefined ? true : actif, req.params.id]
+      );
+    }
     res.json({ message: 'Service mis à jour.' });
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Espace candidat — APRJ</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div id="aprjIntro" class="aprj-intro">
+  <div class="aprj-intro-anneaux"><span></span><span></span><span></span><span></span></div>
+  <div class="aprj-intro-lueur"></div>
+  <img src="/logo-embleme.png" alt="Logo APRJ" class="aprj-intro-logo">
+  <div class="aprj-intro-texte">
+    <strong>APRJ</strong>
+    <span>Ensemble pour demain</span>
+  </div>
+</div>
+<script>
+(function(){
+  var overlay = document.getElementById('aprjIntro');
+  if (!overlay) return;
+  if (sessionStorage.getItem('aprj_intro_vu')) {
+    overlay.style.display = 'none';
+    return;
+  }
+  sessionStorage.setItem('aprj_intro_vu', '1');
+  setTimeout(function(){
+    overlay.classList.add('aprj-intro-sortie');
+    setTimeout(function(){ if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 700);
+  }, 1500);
+})();
+</script>
+
+<header class="entete">
+  <div class="entete-bandeau">
+    <a href="/" class="marque"><img src="/logo-embleme.png" alt="Logo APRJ" class="marque-logo"><span>APRJ<small>ESPACE CANDIDAT</small></span></a>
+    <button class="bouton-burger" id="boutonBurger" aria-label="Ouvrir le menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="entete-actions" id="menuMobile">
+      <nav class="nav-liens"></nav>
+      <a href="#" class="btn btn-contour-clair" onclick="deconnecter()">Se déconnecter</a>
+    </div>
+  </div>
+</header>
+
+<div class="conteneur tableau-bord">
+  <div class="tb-entete">
+    <h2 style="margin:0;">Mon espace candidat</h2>
+  </div>
+
+  <div class="onglets">
+    <div class="onglet actif" data-onglet="profil">Mon profil</div>
+    <div class="onglet" data-onglet="opportunites">Mes opportunités</div>
+  </div>
+
+  <div id="vueProfil">
+    <div id="zoneMessageProfil"></div>
+    <form class="carte-formulaire" id="formProfil" style="max-width:720px; margin:0;" enctype="multipart/form-data">
+      <div style="display:flex; gap:18px; align-items:center; margin-bottom:10px;">
+        <img id="apercuPhoto" src="/favicon.png" style="width:72px; height:72px; border-radius:50%; object-fit:cover; background:var(--ivoire); border:1px solid var(--bordure);">
+        <div class="champ" style="margin:0; flex:1;">
+          <label>Photo de profil</label>
+          <div class="champ-fichier"><input type="file" id="photo" accept=".jpg,.jpeg,.png,.webp"></div>
+        </div>
+      </div>
+      <div class="ligne-deux">
+        <div class="champ"><label for="nom_complet">Nom complet *</label><input type="text" id="nom_complet" required></div>
+        <div class="champ"><label for="ville">Ville</label><input type="text" id="ville"></div>
+      </div>
+      <div class="ligne-deux">
+        <div class="champ">
+          <label for="domaine">Domaine *</label>
+          <select id="domaine" required>
+            <option value="">Choisir...</option>
+            <option>Informatique & Digital</option>
+            <option>Finance & Comptabilité</option>
+            <option>Marketing & Communication</option>
+            <option>Ressources Humaines</option>
+            <option>Commerce & Gestion</option>
+            <option>Assurance & Banque</option>
+            <option>Santé & Paramédical</option>
+            <option>Autres domaines</option>
+          </select>
+        </div>
+        <div class="champ">
+          <label for="niveau_etude">Niveau d'étude *</label>
+          <select id="niveau_etude" required>
+            <option value="">Choisir...</option>
+            <option>CEP</option><option>BEPC</option><option>Probatoire</option>
+            <option>Baccalauréat</option><option>BTS</option><option>Licence</option>
+            <option>Master</option><option>Doctorat</option>
+          </select>
+        </div>
+      </div>
+      <div class="champ"><label for="parcours_pedagogique">Parcours pédagogique</label><textarea id="parcours_pedagogique" rows="2"></textarea></div>
+      <div class="champ"><label for="parcours_professionnel">Parcours professionnel</label><textarea id="parcours_professionnel" rows="2"></textarea></div>
+      <div class="champ"><label for="atouts">Tes atouts</label><textarea id="atouts" rows="2"></textarea></div>
+      <div class="champ">
+        <label>CV (remplace l'ancien si un nouveau fichier est choisi)</label>
+        <div class="champ-fichier"><input type="file" id="cv" accept=".pdf,.doc,.docx"></div>
+        <p id="lienCvActuel" style="font-size:0.85rem;"></p>
+      </div>
+      <button type="submit" class="btn btn-or btn-large" id="btnProfil">Enregistrer les modifications</button>
+    </form>
+  </div>
+
+  <div id="vueOpportunites" style="display:none;">
+    <div id="listeOpportunites"></div>
+  </div>
+</div>
+
+<script src="/js/commun.js"></script>
+<script>
+exigerRole('candidat');
+
+document.querySelectorAll('.onglet').forEach((o) => {
+  o.addEventListener('click', () => {
+    document.querySelectorAll('.onglet').forEach((x) => x.classList.remove('actif'));
+    o.classList.add('actif');
+    const cible = o.dataset.onglet;
+    document.getElementById('vueProfil').style.display = cible === 'profil' ? 'block' : 'none';
+    document.getElementById('vueOpportunites').style.display = cible === 'opportunites' ? 'block' : 'none';
+    if (cible === 'opportunites') chargerOpportunites();
+  });
+});
+
+async function chargerProfil() {
+  try {
+    const { candidat } = await appelApi('/candidats/moi');
+    document.getElementById('nom_complet').value = candidat.nom_complet || '';
+    document.getElementById('ville').value = candidat.ville || '';
+    document.getElementById('domaine').value = candidat.domaine || '';
+    document.getElementById('niveau_etude').value = candidat.niveau_etude || '';
+    document.getElementById('parcours_pedagogique').value = candidat.parcours_pedagogique || '';
+    document.getElementById('parcours_professionnel').value = candidat.parcours_professionnel || '';
+    document.getElementById('atouts').value = candidat.atouts || '';
+    if (candidat.photo_path) document.getElementById('apercuPhoto').src = `/uploads/${candidat.photo_path}`;
+    const lienCv = document.getElementById('lienCvActuel');
+    lienCv.innerHTML = candidat.cv_path ? `CV actuel : <a href="/uploads/${candidat.cv_path}" target="_blank">voir le fichier</a>` : 'Aucun CV envoyé pour le moment.';
+  } catch (err) {
+    afficherMessage(document.getElementById('zoneMessageProfil'), err.message, 'erreur');
+  }
+}
+chargerProfil();
+
+document.getElementById('photo').addEventListener('change', (e) => {
+  const fichier = e.target.files[0];
+  if (fichier) document.getElementById('apercuPhoto').src = URL.createObjectURL(fichier);
+});
+
+document.getElementById('formProfil').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const zone = document.getElementById('zoneMessageProfil');
+  const bouton = document.getElementById('btnProfil');
+  bouton.disabled = true;
+  const donnees = new FormData();
+  ['nom_complet', 'ville', 'domaine', 'niveau_etude', 'parcours_pedagogique', 'parcours_professionnel', 'atouts'].forEach((champ) => {
+    donnees.append(champ, document.getElementById(champ).value);
+  });
+  const photo = document.getElementById('photo').files[0];
+  if (photo) donnees.append('photo', photo);
+  const cv = document.getElementById('cv').files[0];
+  if (cv) donnees.append('cv', cv);
+
+  try {
+    await appelApi('/candidats/moi', { method: 'PUT', corpsFormData: donnees });
+    afficherMessage(zone, 'Profil mis à jour avec succès.', 'succes');
+    chargerProfil();
+  } catch (err) {
+    afficherMessage(zone, err.message, 'erreur');
+  } finally {
+    bouton.disabled = false;
+  }
+});
+
+async function chargerOpportunites() {
+  const conteneur = document.getElementById('listeOpportunites');
+  conteneur.innerHTML = '<p>Chargement...</p>';
+  try {
+    const { notifications } = await appelApi('/candidats/notifications');
+    const opportunites = notifications.filter((n) => n.type === 'opportunite_emploi');
+    if (!opportunites.length) {
+      conteneur.innerHTML = '<p>Aucune opportunité pour le moment. Ton profil est enregistré, l\'APRJ te contactera dès qu\'une offre correspond.</p>';
+      return;
+    }
+    conteneur.innerHTML = opportunites.map((n) => `
+      <div class="carte" style="margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:start; gap:10px;">
+          <h3 style="margin:0 0 6px;">${n.titre}</h3>
+          ${!n.lu ? '<span class="etiquette etiquette-attente">Nouveau</span>' : ''}
+        </div>
+        <p style="margin:0;">${n.message}</p>
+        <p style="font-size:0.8rem; color:var(--gris); margin-top:8px;">${new Date(n.created_at).toLocaleDateString('fr-FR')}</p>
+      </div>
+    `).join('');
+    opportunites.filter((n) => !n.lu).forEach((n) => appelApi(`/candidats/notifications/${n.id}/lu`, { method: 'POST' }).catch(() => {}));
+  } catch (err) {
+    conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`;
+  }
+}
+</script>
+</body>
+</html>

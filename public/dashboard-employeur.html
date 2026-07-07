@@ -56,6 +56,7 @@
   <div class="onglets">
     <div class="onglet actif" data-onglet="nouvelle">Nouvelle demande</div>
     <div class="onglet" data-onglet="liste">Mes demandes</div>
+    <div class="onglet" data-onglet="propositions">Profils proposés</div>
   </div>
 
   <div id="vueNouvelle">
@@ -112,6 +113,10 @@
     <div id="listeDemandes"></div>
     <div id="resultatsRecherche" style="margin-top:28px;"></div>
   </div>
+
+  <div id="vuePropositions" style="display:none;">
+    <div id="listePropositions"></div>
+  </div>
 </div>
 
 <script src="/js/commun.js"></script>
@@ -125,7 +130,9 @@ document.querySelectorAll('.onglet').forEach((o) => {
     const cible = o.dataset.onglet;
     document.getElementById('vueNouvelle').style.display = cible === 'nouvelle' ? 'block' : 'none';
     document.getElementById('vueListe').style.display = cible === 'liste' ? 'block' : 'none';
+    document.getElementById('vuePropositions').style.display = cible === 'propositions' ? 'block' : 'none';
     if (cible === 'liste') chargerDemandes();
+    if (cible === 'propositions') chargerPropositions();
   });
 });
 
@@ -166,7 +173,10 @@ async function chargerDemandes() {
               <td>${d.niveau_etude_requis}</td>
               <td><span class="etiquette etiquette-valide">${d.statut}</span></td>
               <td>${new Date(d.created_at).toLocaleDateString('fr-FR')}</td>
-              <td><button class="btn btn-marine" onclick="rechercher(${d.id})">Faire une recherche</button></td>
+              <td>
+                <button class="btn btn-marine" onclick="rechercher(${d.id})">Faire une recherche</button>
+                <button class="btn btn-danger" onclick="supprimerDemande(${d.id})">Supprimer</button>
+              </td>
             </tr>
           `).join('')}
         </tbody>
@@ -189,10 +199,11 @@ async function rechercher(demandeId) {
     conteneur.innerHTML = `
       <h3>Profils correspondants pour "${demande.poste}"</h3>
       <table class="liste">
-        <thead><tr><th>Candidat</th><th>Ville</th><th>Niveau</th><th>Atouts</th><th>Correspondance</th><th>CV</th></tr></thead>
+        <thead><tr><th></th><th>Candidat</th><th>Ville</th><th>Niveau</th><th>Atouts</th><th>Correspondance</th><th>CV</th></tr></thead>
         <tbody>
           ${resultats.map((c) => `
             <tr>
+              <td>${c.photo_path ? `<img class="miniature" src="/uploads/${c.photo_path}">` : ''}</td>
               <td>${c.nom_complet}</td>
               <td>${c.ville || '—'}</td>
               <td>${c.niveau_etude}</td>
@@ -204,6 +215,52 @@ async function rechercher(demandeId) {
         </tbody>
       </table>
     `;
+  } catch (err) {
+    conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`;
+  }
+}
+
+async function supprimerDemande(id) {
+  if (!confirm('Supprimer cette demande ?')) return;
+  try {
+    await appelApi(`/employeurs/demandes/${id}`, { method: 'DELETE' });
+    chargerDemandes();
+  } catch (err) { alert(err.message); }
+}
+
+async function chargerPropositions() {
+  const conteneur = document.getElementById('listePropositions');
+  conteneur.innerHTML = '<p>Chargement...</p>';
+  try {
+    const { notifications } = await appelApi('/employeurs/notifications');
+    const propositions = notifications.filter((n) => n.type === 'proposition_candidat');
+    if (!propositions.length) {
+      conteneur.innerHTML = '<p>Aucun profil proposé par l\'APRJ pour le moment.</p>';
+      return;
+    }
+    conteneur.innerHTML = propositions.map((n) => {
+      let profil = {};
+      try { profil = JSON.parse(n.message); } catch (e) { /* ancien format texte */ }
+      return `
+        <div class="carte" style="display:flex; gap:18px; align-items:flex-start; margin-bottom:16px;">
+          ${profil.photo_path
+            ? `<img src="/uploads/${profil.photo_path}" style="width:84px; height:84px; border-radius:10px; object-fit:cover; flex-shrink:0;">`
+            : `<div class="carte-icone" style="width:84px; height:84px; font-size:2rem; flex-shrink:0;">👤</div>`}
+          <div style="flex:1;">
+            <div style="display:flex; justify-content:space-between; align-items:start; gap:10px;">
+              <h3 style="margin:0 0 6px;">${n.titre}</h3>
+              ${!n.lu ? '<span class="etiquette etiquette-attente">Nouveau</span>' : ''}
+            </div>
+            <p style="margin:0 0 4px;"><strong>${profil.nom_complet || ''}</strong> — ${profil.ville || '—'} — ${profil.niveau_etude || ''} (${profil.domaine || ''})</p>
+            ${profil.parcours_professionnel ? `<p style="margin:0 0 4px;">${profil.parcours_professionnel}</p>` : ''}
+            ${profil.atouts ? `<p style="margin:0 0 4px;"><em>Atouts : ${profil.atouts}</em></p>` : ''}
+            ${profil.cv_path ? `<a href="/uploads/${profil.cv_path}" target="_blank">Voir le CV</a>` : ''}
+            <p style="font-size:0.8rem; color:var(--gris); margin-top:8px;">${new Date(n.created_at).toLocaleDateString('fr-FR')}</p>
+          </div>
+        </div>
+      `;
+    }).join('');
+    propositions.filter((n) => !n.lu).forEach((n) => appelApi(`/employeurs/notifications/${n.id}/lu`, { method: 'POST' }).catch(() => {}));
   } catch (err) {
     conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`;
   }

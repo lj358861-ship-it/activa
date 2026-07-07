@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nos collaborateurs — APRJ</title>
+<title>Nos événements — APRJ</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -54,15 +54,15 @@
   </div>
 </header>
 
-<div class="carrousel-hero" id="carrouselCollab"></div>
+<div class="carrousel-hero" id="carrouselEvenements"></div>
 
 <section class="section">
   <div class="conteneur">
     <div class="section-titre">
-      <h2>Nos collaborateurs</h2>
-      <p>L'équipe qui accompagne les candidats et les entreprises au quotidien.</p>
+      <h2>Nos événements</h2>
+      <p>Séminaires, festivals, formations et simulations d'entretien : suivez nos activités avec les jeunes et les entreprises partenaires.</p>
     </div>
-    <div class="grille-collaborateurs" id="listeCollaborateurs">
+    <div class="grille-evenements" id="listeEvenements">
       <div class="squelette" style="height:220px;"></div><div class="squelette" style="height:220px;"></div><div class="squelette" style="height:220px;"></div>
     </div>
   </div>
@@ -73,21 +73,25 @@
 <script src="/js/commun.js"></script>
 <script src="/js/carrousel.js"></script>
 <script>
-initCarrousel('collaborateurs', 'carrouselCollab');
+initCarrousel('evenements', 'carrouselEvenements');
+
+const libellesType = { seminaire: 'Séminaire', festival: 'Festival', formation: 'Formation', autre: 'Événement' };
 
 (async () => {
-  const conteneur = document.getElementById('listeCollaborateurs');
+  const conteneur = document.getElementById('listeEvenements');
   try {
-    const { collaborateurs } = await appelApi('/collaborateurs');
-    if (!collaborateurs.length) { conteneur.innerHTML = '<p style="text-align:center;">Contenu bientôt disponible.</p>'; return; }
-    conteneur.innerHTML = collaborateurs.map((c) => `
-      <div class="collab-carte reveal">
-        <div class="collab-photo">
-          ${c.photo_path ? `<img src="/uploads/${c.photo_path}" alt="${c.nom}">` : c.nom.charAt(0)}
+    const { evenements } = await appelApi('/evenements');
+    if (!evenements.length) { conteneur.innerHTML = '<p style="text-align:center;">Aucun événement programmé pour le moment.</p>'; return; }
+    conteneur.innerHTML = evenements.map((ev) => `
+      <div class="evenement-carte reveal">
+        <div class="evenement-image" style="${ev.image_path ? `background-image:url('/uploads/${ev.image_path}')` : ''}"></div>
+        <div class="evenement-corps">
+          <span class="etiquette-type">${libellesType[ev.type] || 'Événement'}</span>
+          <h3>${ev.titre}</h3>
+          <p>${ev.description || ''}</p>
+          ${ev.lieu ? `<p style="font-size:0.85rem;">📍 ${ev.lieu}</p>` : ''}
+          ${ev.date_debut ? `<div class="evenement-date">${new Date(ev.date_debut).toLocaleDateString('fr-FR')}${ev.date_fin ? ' → ' + new Date(ev.date_fin).toLocaleDateString('fr-FR') : ''}</div>` : ''}
         </div>
-        <h3>${c.nom}</h3>
-        ${c.poste ? `<div class="collab-poste">${c.poste}</div>` : ''}
-        <p>${c.bio || ''}</p>
       </div>
     `).join('');
     window.reveler(conteneur);

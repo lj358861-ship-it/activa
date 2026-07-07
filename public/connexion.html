@@ -44,6 +44,7 @@
     <div class="entete-actions" id="menuMobile">
       <nav class="nav-liens">
       <a href="/services.html">Services & activités</a>
+      <a href="/evenements.html">Événements</a>
       <a href="/contact.html">Contact</a>
     </nav>
       <a href="/" class="btn btn-contour">Retour à l'accueil</a>
@@ -55,7 +56,7 @@
   <div class="conteneur">
     <div class="section-titre">
       <h2>Se connecter</h2>
-      <p>Réservé aux comptes employeur et administrateur.</p>
+      <p>Connecte-toi à ton espace candidat, employeur ou administrateur.</p>
     </div>
 
     <form class="carte-formulaire" id="formConnexion" style="max-width:440px;">
@@ -93,6 +94,8 @@ document.getElementById('formConnexion').addEventListener('submit', async (e) =>
       window.location.href = '/dashboard-admin.html';
     } else if (resultat.role === 'employeur') {
       window.location.href = '/dashboard-employeur.html';
+    } else if (resultat.role === 'candidat') {
+      window.location.href = '/dashboard-candidat.html';
     } else {
       window.location.href = '/';
     }

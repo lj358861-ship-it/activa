@@ -57,6 +57,8 @@
     <div class="onglet actif" data-onglet="attente">Employeurs en attente</div>
     <div class="onglet" data-onglet="employeurs">Tous les employeurs</div>
     <div class="onglet" data-onglet="candidats">Candidats</div>
+    <div class="onglet" data-onglet="demandes">Demandes</div>
+    <div class="onglet" data-onglet="matching">Mise en relation</div>
     <div class="onglet" data-onglet="services">Services</div>
     <div class="onglet" data-onglet="evenements">Événements</div>
     <div class="onglet" data-onglet="collaborateurs">Collaborateurs</div>
@@ -67,6 +69,18 @@
   <div id="vueAttente"></div>
   <div id="vueEmployeurs" style="display:none;"></div>
   <div id="vueCandidats" style="display:none;"></div>
+  <div id="vueDemandes" style="display:none;"></div>
+  <div id="vueMatching" style="display:none;">
+    <div class="carte-formulaire compact" style="max-width:520px;">
+      <h3 style="margin-top:0;">Choisir une demande d'employeur</h3>
+      <div class="champ">
+        <select id="selectDemandeMatching" onchange="chargerCandidatsPourDemande()">
+          <option value="">Choisir une demande...</option>
+        </select>
+      </div>
+    </div>
+    <div id="resultatsMatching" style="margin-top:22px;"></div>
+  </div>
 
   <div id="vueServices" style="display:none;">
     <div class="admin-grille-form">
@@ -184,12 +198,14 @@ document.querySelectorAll('.onglet').forEach((o) => {
   o.addEventListener('click', () => {
     document.querySelectorAll('.onglet').forEach((x) => x.classList.remove('actif'));
     o.classList.add('actif');
-    ['vueAttente', 'vueEmployeurs', 'vueCandidats', 'vueServices', 'vueEvenements', 'vueCollaborateurs', 'vueMessages', 'vueHero']
+    ['vueAttente', 'vueEmployeurs', 'vueCandidats', 'vueDemandes', 'vueMatching', 'vueServices', 'vueEvenements', 'vueCollaborateurs', 'vueMessages', 'vueHero']
       .forEach((id) => document.getElementById(id).style.display = 'none');
     const cible = o.dataset.onglet;
     if (cible === 'attente') { document.getElementById('vueAttente').style.display = 'block'; chargerEnAttente(); }
     if (cible === 'employeurs') { document.getElementById('vueEmployeurs').style.display = 'block'; chargerEmployeurs(); }
     if (cible === 'candidats') { document.getElementById('vueCandidats').style.display = 'block'; chargerCandidats(); }
+    if (cible === 'demandes') { document.getElementById('vueDemandes').style.display = 'block'; chargerAdminDemandes(); }
+    if (cible === 'matching') { document.getElementById('vueMatching').style.display = 'block'; chargerSelectDemandes(); }
     if (cible === 'services') { document.getElementById('vueServices').style.display = 'block'; chargerAdminServices(); }
     if (cible === 'evenements') { document.getElementById('vueEvenements').style.display = 'block'; chargerAdminEvenements(); }
     if (cible === 'collaborateurs') { document.getElementById('vueCollaborateurs').style.display = 'block'; chargerAdminCollaborateurs(); }
@@ -629,6 +645,102 @@ async function chargerCandidats() {
       </table>
     `;
   } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+/* ===== DEMANDES (employeurs) ===== */
+async function chargerAdminDemandes() {
+  const conteneur = document.getElementById('vueDemandes');
+  conteneur.innerHTML = '<p>Chargement...</p>';
+  try {
+    const { demandes } = await appelApi('/admin/demandes');
+    if (!demandes.length) { conteneur.innerHTML = '<p>Aucune demande pour le moment.</p>'; return; }
+    conteneur.innerHTML = `
+      <table class="liste">
+        <thead><tr><th>Poste</th><th>Entreprise</th><th>Domaine</th><th>Niveau requis</th><th>Statut</th><th>Publiée le</th><th></th></tr></thead>
+        <tbody>
+          ${demandes.map((d) => `
+            <tr>
+              <td>${d.poste}</td>
+              <td>${d.nom_societe}</td>
+              <td>${d.domaine}</td>
+              <td>${d.niveau_etude_requis}</td>
+              <td><span class="etiquette etiquette-valide">${d.statut}</span></td>
+              <td>${new Date(d.created_at).toLocaleDateString('fr-FR')}</td>
+              <td><button class="btn btn-danger" onclick="supprimerDemandeAdmin(${d.id})">Supprimer</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+async function supprimerDemandeAdmin(id) {
+  if (!confirm('Supprimer cette demande ? Cette action est irréversible.')) return;
+  try {
+    await appelApi(`/admin/demandes/${id}`, { method: 'DELETE' });
+    chargerAdminDemandes();
+  } catch (err) { alert(err.message); }
+}
+
+/* ===== MISE EN RELATION (matching) ===== */
+async function chargerSelectDemandes() {
+  const select = document.getElementById('selectDemandeMatching');
+  try {
+    const { demandes } = await appelApi('/admin/demandes');
+    select.innerHTML = '<option value="">Choisir une demande...</option>' +
+      demandes.filter((d) => d.statut === 'ouverte').map((d) =>
+        `<option value="${d.id}">${d.poste} — ${d.nom_societe} (${d.domaine})</option>`
+      ).join('');
+    document.getElementById('resultatsMatching').innerHTML = '';
+  } catch (err) { console.error(err); }
+}
+
+async function chargerCandidatsPourDemande() {
+  const demandeId = document.getElementById('selectDemandeMatching').value;
+  const conteneur = document.getElementById('resultatsMatching');
+  if (!demandeId) { conteneur.innerHTML = ''; return; }
+  conteneur.innerHTML = '<p>Recherche des profils correspondants...</p>';
+  try {
+    const { demande, resultats } = await appelApi(`/recherche/demandes/${demandeId}/candidats`);
+    if (!resultats.length) {
+      conteneur.innerHTML = `<div class="message message-attente">Aucun profil ne correspond encore à "${demande.poste}".</div>`;
+      return;
+    }
+    conteneur.innerHTML = `
+      <h3>Profils correspondants pour "${demande.poste}" (${demande.nom_societe})</h3>
+      <table class="liste">
+        <thead><tr><th></th><th>Candidat</th><th>Ville</th><th>Niveau</th><th>Atouts</th><th>Correspondance</th><th>CV</th><th></th></tr></thead>
+        <tbody>
+          ${resultats.map((c) => `
+            <tr>
+              <td>${c.photo_path ? `<img class="miniature" src="/uploads/${c.photo_path}">` : ''}</td>
+              <td>${c.nom_complet}</td>
+              <td>${c.ville || '—'}</td>
+              <td>${c.niveau_etude}</td>
+              <td>${c.atouts || '—'}</td>
+              <td><span class="etiquette etiquette-score">${c.score_correspondance}%</span></td>
+              <td>${c.cv_path ? `<a href="/uploads/${c.cv_path}" target="_blank">Voir</a>` : '—'}</td>
+              <td><button class="btn btn-or" onclick="proposerCandidat(${demandeId}, ${c.id}, ${c.score_correspondance}, this)">Proposer ce profil</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+async function proposerCandidat(demandeId, candidatId, score, bouton) {
+  bouton.disabled = true;
+  bouton.textContent = 'Envoi...';
+  try {
+    await appelApi(`/admin/demandes/${demandeId}/proposer/${candidatId}`, { method: 'POST', corpsJson: { score } });
+    bouton.textContent = '✅ Proposé';
+  } catch (err) {
+    alert(err.message);
+    bouton.disabled = false;
+    bouton.textContent = 'Proposer ce profil';
+  }
 }
 
 chargerStats();

@@ -51,9 +51,12 @@ async function main() {
   const [heroExistant] = await connection.query('SELECT COUNT(*) AS n FROM contenu_hero WHERE page_cle = "accueil"');
   if (heroExistant[0].n === 0) {
     await connection.query(
-      `INSERT INTO contenu_hero (page_cle, slogan, sous_texte, ordre) VALUES
-       ('accueil', 'Le bon poste ne suffit pas. Il faut être prêt à l\\'occuper.', 'Recrutement, formation et entretien en conditions réelles.', 1),
-       ('accueil', 'Des talents formés, pas seulement des CV.', 'APRJ prépare chaque candidat avant la mise en relation.', 2)`
+      `INSERT INTO contenu_hero (page_cle, image_path, slogan, sous_texte, ordre) VALUES
+       ('accueil', '/accueil-photo-1.jpeg', 'Le bon poste ne suffit pas. Il faut être prêt à l\\'occuper.', 'Recrutement, formation et entretien en conditions réelles.', 1),
+       ('accueil', '/accueil-photo-2.webp', 'Des talents formés, pas seulement des CV.', 'APRJ prépare chaque candidat avant la mise en relation.', 2),
+       ('accueil', '/accueil-photo-3.jpeg', 'Recruter vite, recruter juste.', 'Des profils vérifiés et qualifiés, prêts à rejoindre vos équipes.', 3),
+       ('accueil', '/accueil-photo-4.webp', 'Une équipe qui avance ensemble, pour demain.', 'Un accompagnement humain à chaque étape du parcours.', 4),
+       ('accueil', '/accueil-photo-5.jpeg', 'Ton talent mérite la bonne opportunité.', 'Dépose ton profil et laisse APRJ te mettre en relation.', 5)`
     );
     console.log('Diapositives de démonstration ajoutées pour la page d\'accueil (remplace-les par tes vraies images/slogans depuis l\'admin).');
   }

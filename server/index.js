@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 
+const { initialiserBaseDeDonnees } = require('./scripts/init-db');
 const authRoutes = require('./routes/auth');
 const candidatRoutes = require('./routes/candidat');
 const employeurRoutes = require('./routes/employeur');
@@ -44,6 +45,21 @@ app.use((err, req, res, next) => {
 app.get('/api/sante', (req, res) => res.json({ statut: 'ok' }));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Serveur APRJ démarré sur le port ${PORT}`);
-});
+
+// Initialise automatiquement les tables + le compte admin si besoin, à chaque démarrage.
+// Sans danger à rejouer : ne fait rien si tout existe déjà. Permet de ne jamais avoir
+// à lancer une commande manuelle (npm run init-db) sur Railway.
+initialiserBaseDeDonnees()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Serveur APRJ démarré sur le port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Erreur lors de l\'initialisation automatique de la base:', err);
+    // On démarre quand même le serveur : mieux vaut un site en ligne avec un message
+    // d'erreur clair dans les logs qu'un déploiement qui ne démarre jamais.
+    app.listen(PORT, () => {
+      console.log(`Serveur APRJ démarré sur le port ${PORT} (⚠️ init base échouée, voir logs ci-dessus)`);
+    });
+  });

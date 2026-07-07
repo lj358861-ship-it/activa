@@ -315,6 +315,23 @@ a { color: inherit; text-decoration: none; }
   transform: scale(1.12) rotate(-6deg);
   background: rgba(232,163,61,0.18);
 }
+.carte-photo {
+  width: 100%;
+  height: 160px;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  background: rgba(11,31,58,0.06);
+}
+.carte-photo img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.35s cubic-bezier(.2,.8,.3,1);
+}
+.carte:hover .carte-photo img {
+  transform: scale(1.06);
+}
 
 /* ---- Choix de profil (candidat / employeur) ---- */
 .choix-grille {

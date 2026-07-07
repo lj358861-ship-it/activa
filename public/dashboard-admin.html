@@ -70,10 +70,14 @@
 
   <div id="vueServices" style="display:none;">
     <div class="admin-grille-form">
-      <form class="carte-formulaire compact" id="formService">
+      <form class="carte-formulaire compact" id="formService" enctype="multipart/form-data">
         <h3 id="titreFormService">Ajouter un service</h3>
         <input type="hidden" id="serviceId">
-        <div class="champ"><label>Icône (emoji)</label><input type="text" id="serviceIcone" placeholder="🎯" value="📌"></div>
+        <div class="champ"><label>Icône (emoji, utilisée si pas de photo)</label><input type="text" id="serviceIcone" placeholder="🎯" value="📌"></div>
+        <div class="champ">
+          <label>Photo (optionnel — remplace l'icône si ajoutée)</label>
+          <div class="champ-fichier"><input type="file" id="servicePhoto" accept=".jpg,.jpeg,.png,.webp"></div>
+        </div>
         <div class="champ"><label>Titre *</label><input type="text" id="serviceTitre" required></div>
         <div class="champ"><label>Description</label><textarea id="serviceDescription" rows="3"></textarea></div>
         <div class="champ"><label>Ordre d'affichage</label><input type="number" id="serviceOrdre" value="0"></div>
@@ -198,6 +202,7 @@ document.querySelectorAll('.onglet').forEach((o) => {
 function resetFormService() {
   document.getElementById('serviceId').value = '';
   document.getElementById('serviceIcone').value = '📌';
+  document.getElementById('servicePhoto').value = '';
   document.getElementById('serviceTitre').value = '';
   document.getElementById('serviceDescription').value = '';
   document.getElementById('serviceOrdre').value = 0;
@@ -207,15 +212,17 @@ function resetFormService() {
 document.getElementById('formService').addEventListener('submit', async (e) => {
   e.preventDefault();
   const id = document.getElementById('serviceId').value;
-  const corps = {
-    icone: document.getElementById('serviceIcone').value,
-    titre: document.getElementById('serviceTitre').value,
-    description: document.getElementById('serviceDescription').value,
-    ordre: document.getElementById('serviceOrdre').value
-  };
+  const donnees = new FormData();
+  donnees.append('icone', document.getElementById('serviceIcone').value);
+  donnees.append('titre', document.getElementById('serviceTitre').value);
+  donnees.append('description', document.getElementById('serviceDescription').value);
+  donnees.append('ordre', document.getElementById('serviceOrdre').value);
+  const fichier = document.getElementById('servicePhoto').files[0];
+  if (fichier) donnees.append('photo', fichier);
+
   try {
-    if (id) await appelApi(`/admin/services/${id}`, { method: 'PUT', corpsJson: corps });
-    else await appelApi('/admin/services', { method: 'POST', corpsJson: corps });
+    const url = id ? `/admin/services/${id}` : '/admin/services';
+    await appelApi(url, { method: id ? 'PUT' : 'POST', corpsFormData: donnees });
     resetFormService();
     chargerAdminServices();
   } catch (err) { alert(err.message); }
@@ -233,12 +240,12 @@ async function chargerAdminServices() {
         <tbody>
           ${services.map((s) => `
             <tr>
-              <td style="font-size:1.3rem;">${s.icone}</td>
+              <td>${s.photo_path ? `<img class="miniature" src="/uploads/${s.photo_path}">` : `<span style="font-size:1.3rem;">${s.icone}</span>`}</td>
               <td>${s.titre}</td>
               <td>${s.ordre}</td>
               <td><span class="etiquette ${s.actif ? 'etiquette-valide' : 'etiquette-attente'}">${s.actif ? 'Actif' : 'Masqué'}</span></td>
               <td>
-                <button class="btn btn-contour" onclick='editerService(${JSON.stringify(s)})'>Modifier</button>
+                <button class="btn btn-contour" onclick='editerService(${JSON.stringify(s).replace(/'/g, "&#39;")})'>Modifier</button>
                 <button class="btn btn-danger" onclick="supprimerService(${s.id})">Supprimer</button>
               </td>
             </tr>
@@ -251,6 +258,7 @@ async function chargerAdminServices() {
 function editerService(s) {
   document.getElementById('serviceId').value = s.id;
   document.getElementById('serviceIcone').value = s.icone;
+  document.getElementById('servicePhoto').value = '';
   document.getElementById('serviceTitre').value = s.titre;
   document.getElementById('serviceDescription').value = s.description || '';
   document.getElementById('serviceOrdre').value = s.ordre;

@@ -95,7 +95,7 @@ const libellesType = { seminaire: 'Séminaire', festival: 'Festival', formation:
     if (!services.length) { conteneur.innerHTML = '<p style="text-align:center;">Contenu bientôt disponible — revenez prochainement.</p>'; return; }
     conteneur.innerHTML = services.map((s) => `
       <div class="carte reveal">
-        <div class="carte-icone">${s.icone}</div>
+        ${s.photo_path ? `<div class="carte-photo"><img src="/uploads/${s.photo_path}" alt="${s.titre}"></div>` : `<div class="carte-icone">${s.icone}</div>`}
         <h3>${s.titre}</h3>
         <p>${s.description || ''}</p>
       </div>

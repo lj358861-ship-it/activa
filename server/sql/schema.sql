@@ -138,6 +138,22 @@ CREATE TABLE IF NOT EXISTS contenu_hero (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
+-- Notifications envoyées aux candidats et employeurs (propositions de mise en relation, etc.)
+CREATE TABLE IF NOT EXISTS notifications (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  type ENUM('proposition_candidat', 'opportunite_emploi', 'info') DEFAULT 'info',
+  titre VARCHAR(200) NOT NULL,
+  message TEXT,
+  demande_id INT NULL,
+  candidat_id INT NULL,
+  lu BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (demande_id) REFERENCES demandes(id) ON DELETE SET NULL,
+  FOREIGN KEY (candidat_id) REFERENCES candidats(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
 -- Compte admin par défaut (mot de passe à changer immédiatement après déploiement)
 -- Le hash ci-dessous correspond au mot de passe temporaire "ChangeMoi123!"
 -- Génère un nouveau hash avec: node server/scripts/hash-password.js

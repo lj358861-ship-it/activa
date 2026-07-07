@@ -1,11 +1,13 @@
 // Exécute le schema.sql sur la base MySQL configurée, puis crée le compte admin.
+// Ce script est SANS DANGER à relancer plusieurs fois : il ne fait rien si tout existe déjà
+// (CREATE TABLE IF NOT EXISTS, et vérifications avant chaque insertion de démo).
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 
-async function main() {
+async function initialiserBaseDeDonnees() {
   const host = process.env.MYSQL_HOST || process.env.MYSQLHOST || 'localhost';
   const port = process.env.MYSQL_PORT || process.env.MYSQLPORT || 3306;
   const user = process.env.MYSQL_USER || process.env.MYSQLUSER || 'root';
@@ -16,7 +18,7 @@ async function main() {
 
   const schemaPath = path.join(__dirname, '..', 'sql', 'schema.sql');
   const schemaSql = fs.readFileSync(schemaPath, 'utf8');
-  console.log('Création des tables...');
+  console.log('[init-db] Vérification des tables...');
   await connection.query(schemaSql);
   await connection.changeUser({ database });
 
@@ -29,10 +31,10 @@ async function main() {
       'INSERT INTO users (role, email, password_hash, telephone) VALUES ("admin", "admin@aprj.org", ?, "0000000000")',
       [hash]
     );
-    console.log('Compte admin créé -> email: admin@aprj.org | mot de passe temporaire: ' + tempPassword);
-    console.log('IMPORTANT: connecte-toi et change ce mot de passe immédiatement.');
+    console.log('[init-db] Compte admin créé -> email: admin@aprj.org | mot de passe temporaire: ' + tempPassword);
+    console.log('[init-db] IMPORTANT: connecte-toi et change ce mot de passe immédiatement.');
   } else {
-    console.log('Un compte admin existe déjà, aucune action.');
+    console.log('[init-db] Un compte admin existe déjà, aucune action.');
   }
 
   // Contenu de démonstration (services, diapositives d'accueil) si les tables sont vides
@@ -45,7 +47,7 @@ async function main() {
        ('Entretien en conditions réelles', 'Simulation d\\'entretien pour arriver confiant le jour J.', '🧭', 3),
        ('Séminaires & ateliers', 'Sessions collectives sur les compétences recherchées par les entreprises.', '🎤', 4)`
     );
-    console.log('Services de démonstration ajoutés (à modifier depuis l\'espace admin).');
+    console.log('[init-db] Services de démonstration ajoutés (à modifier depuis l\'espace admin).');
   }
 
   const [heroExistant] = await connection.query('SELECT COUNT(*) AS n FROM contenu_hero WHERE page_cle = "accueil"');
@@ -58,14 +60,19 @@ async function main() {
        ('accueil', '/accueil-photo-4.webp', 'Une équipe qui avance ensemble, pour demain.', 'Un accompagnement humain à chaque étape du parcours.', 4),
        ('accueil', '/accueil-photo-5.jpeg', 'Ton talent mérite la bonne opportunité.', 'Dépose ton profil et laisse APRJ te mettre en relation.', 5)`
     );
-    console.log('Diapositives de démonstration ajoutées pour la page d\'accueil (remplace-les par tes vraies images/slogans depuis l\'admin).');
+    console.log('[init-db] Diapositives de démonstration ajoutées pour la page d\'accueil (remplace-les par tes vraies images/slogans depuis l\'admin).');
   }
 
   await connection.end();
-  console.log('Base de données initialisée avec succès.');
+  console.log('[init-db] Base de données initialisée avec succès.');
 }
 
-main().catch((err) => {
-  console.error('Erreur lors de l\'initialisation de la base:', err);
-  process.exit(1);
-});
+module.exports = { initialiserBaseDeDonnees };
+
+// Permet de garder l'usage en ligne de commande : npm run init-db
+if (require.main === module) {
+  initialiserBaseDeDonnees().catch((err) => {
+    console.error('Erreur lors de l\'initialisation de la base:', err);
+    process.exit(1);
+  });
+}

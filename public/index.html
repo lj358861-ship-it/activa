@@ -22,13 +22,9 @@
 </div>
 <script>
 (function(){
+  // Sur la page d'accueil, l'animation du logo doit rejouer à chaque chargement/rafraîchissement.
   var overlay = document.getElementById('aprjIntro');
   if (!overlay) return;
-  if (sessionStorage.getItem('aprj_intro_vu')) {
-    overlay.style.display = 'none';
-    return;
-  }
-  sessionStorage.setItem('aprj_intro_vu', '1');
   setTimeout(function(){
     overlay.classList.add('aprj-intro-sortie');
     setTimeout(function(){ if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 700);

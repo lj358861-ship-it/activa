@@ -441,17 +441,24 @@ table.liste tr:last-child td { border-bottom: none; }
   position: absolute; inset: 0;
   background: linear-gradient(120deg, rgba(11,31,58,0.88) 0%, rgba(11,31,58,0.55) 70%);
 }
-.carrousel-texte {
-  position: relative;
-  z-index: 2;
-  max-width: 1140px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 0 24px;
-  color: var(--blanc);
+.carrousel-texte { position: relative; z-index: 2; max-width: 1140px; width: 100%; margin: 0 auto; padding: 0 24px; color: var(--blanc); }
+.carrousel-texte h1 { color: var(--blanc); max-width: 640px; overflow: hidden; }
+.carrousel-texte p {
+  color: #C9D3E4; max-width: 480px; font-size: 1.02rem;
+  opacity: 0; transform: translateY(10px);
+  transition: opacity 0.6s ease 0.5s, transform 0.6s ease 0.5s;
 }
-.carrousel-texte h1 { color: var(--blanc); max-width: 640px; }
-.carrousel-texte p { color: #C9D3E4; max-width: 480px; font-size: 1.02rem; }
+.carrousel-diapo.slogan-revele .carrousel-texte p { opacity: 1; transform: translateY(0); }
+
+/* Révélation du slogan mot par mot (façon RotatingText) */
+.mot-anime {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(120%) rotate(4deg);
+  transition: opacity 0.55s cubic-bezier(.2,.9,.25,1), transform 0.6s cubic-bezier(.2,.9,.25,1);
+}
+.carrousel-diapo.slogan-revele .mot-anime { opacity: 1; transform: translateY(0) rotate(0); }
+
 .carrousel-puces {
   position: absolute;
   bottom: 20px; left: 50%;
@@ -466,7 +473,45 @@ table.liste tr:last-child td { border-bottom: none; }
 }
 .carrousel-puces .puce.actif { background: var(--or); }
 
-/* ---- Grille collaborateurs ---- */
+/* ---- Défilé de logos partenaires (façon LogoLoop) ---- */
+.logoloop {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  padding: 8px 0 36px;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 8%, black 92%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, black 8%, black 92%, transparent 100%);
+}
+.logoloop-piste {
+  display: flex;
+  width: max-content;
+  animation: logoloopDefilement 26s linear infinite;
+}
+.logoloop:hover .logoloop-piste { animation-play-state: paused; }
+.logoloop-groupe { display: flex; align-items: center; }
+.logoloop-item {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60px;
+  margin: 0 36px;
+}
+.logoloop-item img {
+  height: 100%;
+  max-width: 140px;
+  object-fit: contain;
+  filter: grayscale(1) opacity(0.55);
+  transition: filter 0.35s ease, transform 0.35s ease;
+}
+.logoloop-item:hover img { filter: grayscale(0) opacity(1); transform: scale(1.08); }
+@keyframes logoloopDefilement {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .logoloop-piste { animation: none; }
+}
 .grille-collaborateurs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 22px; }
 .collab-carte { background: var(--blanc); border: 1px solid var(--bordure); border-radius: var(--rayon); padding: 24px; text-align: center; box-shadow: var(--ombre); }
 .collab-photo {
@@ -581,18 +626,35 @@ a:focus-visible, .btn:focus-visible, .onglet:focus-visible { outline: 2px solid 
   gap: 20px;
   transition: opacity 0.65s ease, visibility 0.65s ease;
 }
-.aprj-intro-anneau {
+.aprj-intro-anneaux {
   position: absolute;
   width: 260px; height: 260px;
+  display: flex; align-items: center; justify-content: center;
+}
+.aprj-intro-anneaux span {
+  position: absolute;
   border-radius: 50%;
-  border: 1.5px solid rgba(232,163,61,0.25);
-  animation: aprjAnneau 2.2s ease-out infinite;
+  border: 1.5px solid rgba(232,163,61,0.4);
+  animation: aprjAnneau 2.4s cubic-bezier(.25,.7,.4,1) infinite;
 }
+.aprj-intro-anneaux span:nth-child(1) { width: 140px; height: 140px; animation-delay: 0s; border-color: rgba(232,163,61,0.55); }
+.aprj-intro-anneaux span:nth-child(2) { width: 140px; height: 140px; animation-delay: 0.5s; border-color: rgba(76,154,106,0.5); }
+.aprj-intro-anneaux span:nth-child(3) { width: 140px; height: 140px; animation-delay: 1s; border-color: rgba(232,163,61,0.4); }
+.aprj-intro-anneaux span:nth-child(4) { width: 140px; height: 140px; animation-delay: 1.5s; border-color: rgba(76,154,106,0.35); }
 @keyframes aprjAnneau {
-  0% { transform: scale(0.6); opacity: 0; }
-  40% { opacity: 0.6; }
-  100% { transform: scale(1.15); opacity: 0; }
+  0% { transform: scale(0.55); opacity: 0; }
+  35% { opacity: 0.75; }
+  100% { transform: scale(2.1); opacity: 0; }
 }
+.aprj-intro-lueur {
+  position: absolute;
+  width: 180px; height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(232,163,61,0.35) 0%, rgba(232,163,61,0) 70%);
+  filter: blur(6px);
+  animation: aprjLueur 2.4s ease-in-out infinite alternate;
+}
+@keyframes aprjLueur { from { transform: scale(0.9); opacity: 0.6; } to { transform: scale(1.15); opacity: 1; } }
 .aprj-intro-logo {
   width: 128px; height: 128px;
   border-radius: 22px;

@@ -611,7 +611,7 @@ async function chargerEmployeurs() {
     const { employeurs } = await appelApi('/admin/employeurs');
     conteneur.innerHTML = `
       <table class="liste">
-        <thead><tr><th>Société</th><th>Secteur</th><th>Email</th><th>Statut</th></tr></thead>
+        <thead><tr><th>Société</th><th>Secteur</th><th>Email</th><th>Statut</th><th></th></tr></thead>
         <tbody>
           ${employeurs.map((e) => `
             <tr>
@@ -619,12 +619,21 @@ async function chargerEmployeurs() {
               <td>${e.secteur || '—'}</td>
               <td>${e.email}</td>
               <td><span class="etiquette ${e.is_valide ? 'etiquette-valide' : 'etiquette-attente'}">${e.is_valide ? 'Validé' : 'En attente'}</span></td>
+              <td><button class="btn btn-danger" onclick="supprimerEmployeur(${e.id})">Supprimer</button></td>
             </tr>
           `).join('')}
         </tbody>
       </table>
     `;
   } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+async function supprimerEmployeur(id) {
+  if (!confirm('Supprimer définitivement cet employeur (compte, demandes et sélections associées) ?')) return;
+  try {
+    await appelApi(`/admin/employeurs/${id}`, { method: 'DELETE' });
+    chargerEmployeurs(); chargerStats();
+  } catch (err) { alert(err.message); }
 }
 
 async function chargerCandidats() {
@@ -634,7 +643,7 @@ async function chargerCandidats() {
     const { candidats } = await appelApi('/admin/candidats');
     conteneur.innerHTML = `
       <table class="liste">
-        <thead><tr><th>Nom</th><th>Téléphone</th><th>Domaine</th><th>Niveau</th><th>Ville</th><th>WhatsApp envoyé</th><th>CV</th></tr></thead>
+        <thead><tr><th>Nom</th><th>Téléphone</th><th>Domaine</th><th>Niveau</th><th>Ville</th><th>WhatsApp envoyé</th><th>CV</th><th></th></tr></thead>
         <tbody>
           ${candidats.map((c) => `
             <tr>
@@ -645,12 +654,21 @@ async function chargerCandidats() {
               <td>${c.ville || '—'}</td>
               <td>${c.whatsapp_envoye ? '✅' : '—'}</td>
               <td>${c.cv_path ? `<a href="/uploads/${c.cv_path}" target="_blank">Voir</a>` : '—'}</td>
+              <td><button class="btn btn-danger" onclick="supprimerCandidat(${c.id})">Supprimer</button></td>
             </tr>
           `).join('')}
         </tbody>
       </table>
     `;
   } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+async function supprimerCandidat(id) {
+  if (!confirm('Supprimer définitivement ce candidat (compte, candidatures et sélections associées) ?')) return;
+  try {
+    await appelApi(`/admin/candidats/${id}`, { method: 'DELETE' });
+    chargerCandidats(); chargerStats();
+  } catch (err) { alert(err.message); }
 }
 
 /* ===== DEMANDES (employeurs) ===== */
@@ -777,6 +795,7 @@ async function chargerSelections() {
                 ${s.statut === 'notifie'
                   ? '<span style="color:var(--gris); font-size:0.85rem;">✅ Déjà notifié</span>'
                   : `<button class="btn btn-or" onclick="notifierCandidat(${s.id}, this)">Notifier candidat</button>`}
+                <button class="btn btn-danger" style="margin-top:6px;" onclick="supprimerSelection(${s.id})">Supprimer</button>
               </td>
             </tr>
           `).join('')}
@@ -784,6 +803,14 @@ async function chargerSelections() {
       </table>
     `;
   } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+async function supprimerSelection(id) {
+  if (!confirm('Supprimer cette sélection ? Le candidat ne sera pas notifié.')) return;
+  try {
+    await appelApi(`/admin/mises-en-relation/${id}`, { method: 'DELETE' });
+    chargerSelections();
+  } catch (err) { alert(err.message); }
 }
 
 async function notifierCandidat(id, bouton) {

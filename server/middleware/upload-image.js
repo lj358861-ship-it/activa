@@ -1,17 +1,9 @@
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 
-const dossierUploads = path.join(__dirname, '..', '..', 'uploads');
-if (!fs.existsSync(dossierUploads)) fs.mkdirSync(dossierUploads, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, dossierUploads),
-  filename: (req, file, cb) => {
-    const extension = path.extname(file.originalname);
-    cb(null, 'image-' + Date.now() + extension);
-  }
-});
+// Stockage en mémoire (buffer) : les images sont ensuite enregistrées dans la base
+// de données (table `fichiers`), pas sur le disque.
+const storage = multer.memoryStorage();
 
 const typesAutorises = ['.jpg', '.jpeg', '.png', '.webp'];
 

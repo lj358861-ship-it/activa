@@ -1,19 +1,10 @@
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 
-const dossierUploads = path.join(__dirname, '..', '..', 'uploads');
-if (!fs.existsSync(dossierUploads)) fs.mkdirSync(dossierUploads, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, dossierUploads),
-  filename: (req, file, cb) => {
-    const horodatage = Date.now();
-    const extension = path.extname(file.originalname);
-    const nomPropre = file.fieldname + '-' + horodatage + extension;
-    cb(null, nomPropre);
-  }
-});
+// Stockage en mémoire (buffer) : les fichiers sont ensuite enregistrés dans la base
+// de données (table `fichiers`), pas sur le disque, qui n'est pas persistant sans
+// volume Railway payant.
+const storage = multer.memoryStorage();
 
 const typesAutorises = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png'];
 

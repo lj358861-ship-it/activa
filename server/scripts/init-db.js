@@ -34,6 +34,22 @@ async function initialiserBaseDeDonnees() {
     console.log('[init-db] Colonne photo_path ajoutée à la table services.');
   }
 
+  // Migration : ajoute le suivi de statut à mises_en_relation (proposé -> sélectionné -> notifié)
+  const [colonnesMER] = await connection.query(
+    `SELECT COUNT(*) AS n FROM information_schema.columns
+     WHERE table_schema = ? AND table_name = 'mises_en_relation' AND column_name = 'statut'`,
+    [database]
+  );
+  if (colonnesMER[0].n === 0) {
+    await connection.query(
+      `ALTER TABLE mises_en_relation
+       ADD COLUMN statut ENUM('propose', 'selectionne', 'notifie') DEFAULT 'propose' AFTER score_correspondance,
+       ADD COLUMN selectionne_le TIMESTAMP NULL,
+       ADD COLUMN notifie_le TIMESTAMP NULL`
+    );
+    console.log('[init-db] Colonnes de statut ajoutées à la table mises_en_relation.');
+  }
+
   // Créer le compte admin par défaut s'il n'existe pas
   const [rows] = await connection.query('SELECT id FROM users WHERE role = "admin" LIMIT 1');
   if (rows.length === 0) {

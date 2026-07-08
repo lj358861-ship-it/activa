@@ -121,21 +121,51 @@ async function envoyerMessageTexte(destinataire, texte) {
 }
 
 /**
+ * Met en forme le créneau d'entretien pour l'insérer dans le message WhatsApp.
+ * entretienDate est une valeur Date (ou string ISO) venant de la base de données.
+ */
+function formaterCreneau(entretienDate) {
+  if (!entretienDate) return 'à confirmer';
+  const date = new Date(entretienDate);
+  if (Number.isNaN(date.getTime())) return 'à confirmer';
+  const jour = date.toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  const heure = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  return `${jour} à ${heure}`;
+}
+
+/**
  * Notifie un CANDIDAT (via template Meta approuvé) qu'une entreprise a sélectionné
- * son profil pour un poste. Nécessite un template Meta distinct de celui utilisé
- * pour prévenir l'admin (voir note en tête de fichier).
+ * son profil pour un poste, avec le créneau d'entretien retenu par l'employeur.
+ * Nécessite un template Meta distinct de celui utilisé pour prévenir l'admin
+ * (voir note en tête de fichier).
  *
  * Étape à faire une seule fois dans Meta Business Manager :
  *   1. Créer un template nommé comme WHATSAPP_TEMPLATE_SELECTION_NAME (ex: "profil_selectionne")
  *   2. Catégorie : Utility
  *   3. Corps du message avec variables, ex :
  *      "Bonjour {{1}}, l'entreprise {{2}} a sélectionné ton profil pour le poste
- *       {{3}}. L'APRJ ou l'entreprise te contactera bientôt. Bonne chance !"
+ *       {{3}}.
+ *       Entretien prévu : {{4}}
+ *       Lieu : {{5}}
+ *       Informations complémentaires : {{6}}
+ *       L'APRJ ou l'entreprise te contactera bientôt. Bonne chance !"
+ *   4. Le template doit être approuvé par Meta AVANT que ce nouveau format à 6
+ *      variables puisse être utilisé. Si un ancien template à 3 variables est
+ *      encore actif côté Meta, cette fonction échouera tant que le nouveau
+ *      template (avec le créneau) n'est pas validé — pense à mettre à jour
+ *      WHATSAPP_TEMPLATE_SELECTION_NAME une fois le nouveau template approuvé.
  */
-async function envoyerNotificationSelection({ telephoneCandidat, nomCandidat, nomSociete, poste }) {
+async function envoyerNotificationSelection({
+  telephoneCandidat, nomCandidat, nomSociete, poste,
+  entretienDate, entretienLieu, entretienNotes
+}) {
   if (!process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) {
     console.warn('[WhatsApp] Configuration incomplète (.env) — notification candidat non envoyée.');
     return { envoye: false, raison: 'configuration_incomplete' };
+  }
+  if (!telephoneCandidat || !normaliserTelephone(telephoneCandidat)) {
+    console.warn('[WhatsApp] Numéro de téléphone du candidat manquant ou invalide — notification non envoyée.');
+    return { envoye: false, raison: 'telephone_manquant' };
   }
   const corps = {
     messaging_product: 'whatsapp',
@@ -150,7 +180,10 @@ async function envoyerNotificationSelection({ telephoneCandidat, nomCandidat, no
           parameters: [
             { type: 'text', text: nomCandidat },
             { type: 'text', text: nomSociete },
-            { type: 'text', text: poste }
+            { type: 'text', text: poste },
+            { type: 'text', text: formaterCreneau(entretienDate) },
+            { type: 'text', text: entretienLieu || 'à confirmer' },
+            { type: 'text', text: entretienNotes || 'aucune' }
           ]
         }
       ]
@@ -165,4 +198,10 @@ async function envoyerNotificationSelection({ telephoneCandidat, nomCandidat, no
   }
 }
 
-module.exports = { envoyerNotificationCandidature, envoyerMessageTexte, envoyerNotificationSelection, normaliserTelephone };
+module.exports = {
+  envoyerNotificationCandidature,
+  envoyerMessageTexte,
+  envoyerNotificationSelection,
+  normaliserTelephone,
+  formaterCreneau
+};

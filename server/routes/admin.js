@@ -2,7 +2,8 @@ const express = require('express');
 const pool = require('../db');
 const { verifierToken, autoriserRoles } = require('../middleware/auth');
 const uploadImage = require('../middleware/upload-image');
-const { envoyerNotificationSelection } = require('../services/whatsapp');
+const { envoyerNotificationSelection, formaterCreneau } = require('../services/whatsapp');
+const { envoyerEmailSelection } = require('../services/email');
 const { enregistrerFichier } = require('../services/fichiers');
 
 const router = express.Router();
@@ -63,7 +64,12 @@ router.post('/employeurs/:id/refuser', async (req, res) => {
 // Liste de tous les candidats enregistrés
 router.get('/candidats', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM candidats ORDER BY created_at DESC');
+    const [rows] = await pool.query(
+      `SELECT c.*, u.telephone, u.email
+       FROM candidats c
+       JOIN users u ON u.id = c.user_id
+       ORDER BY c.created_at DESC`
+    );
     res.json({ candidats: rows });
   } catch (e) {
     console.error(e);
@@ -369,6 +375,7 @@ router.get('/selections', async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT mer.id, mer.statut, mer.score_correspondance, mer.selectionne_le, mer.notifie_le,
+              mer.entretien_date, mer.entretien_lieu, mer.entretien_notes,
               d.id AS demande_id, d.poste, e.nom_societe,
               c.id AS candidat_id, c.nom_complet, c.ville, c.niveau_etude, c.domaine, c.photo_path,
               u.telephone AS telephone_candidat
@@ -388,7 +395,8 @@ router.get('/selections', async (req, res) => {
 router.post('/mises-en-relation/:id/notifier', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT mer.*, d.poste, e.nom_societe, c.nom_complet, c.user_id AS candidat_user_id, u.telephone
+      `SELECT mer.*, d.poste, e.nom_societe, c.nom_complet, c.user_id AS candidat_user_id,
+              u.telephone, u.email
        FROM mises_en_relation mer
        JOIN demandes d ON d.id = mer.demande_id
        JOIN employeurs e ON e.id = d.employeur_id
@@ -400,14 +408,39 @@ router.post('/mises-en-relation/:id/notifier', async (req, res) => {
     if (!rows.length) return res.status(404).json({ erreur: 'Sélection introuvable.' });
     const sel = rows[0];
 
-    const resultat = await envoyerNotificationSelection({
+    const resultatWhatsapp = await envoyerNotificationSelection({
       telephoneCandidat: sel.telephone,
       nomCandidat: sel.nom_complet,
       nomSociete: sel.nom_societe,
-      poste: sel.poste
+      poste: sel.poste,
+      entretienDate: sel.entretien_date,
+      entretienLieu: sel.entretien_lieu,
+      entretienNotes: sel.entretien_notes
     });
 
+    // Secours automatique par email si WhatsApp n'a pas pu être envoyé
+    // (config manquante/payante non activée, téléphone invalide, erreur API...)
+    let resultatEmail = null;
+    if (!resultatWhatsapp.envoye) {
+      resultatEmail = await envoyerEmailSelection({
+        emailCandidat: sel.email,
+        nomCandidat: sel.nom_complet,
+        nomSociete: sel.nom_societe,
+        poste: sel.poste,
+        creneauTexte: formaterCreneau(sel.entretien_date),
+        entretienLieu: sel.entretien_lieu,
+        entretienNotes: sel.entretien_notes
+      });
+    }
+
     await pool.query(`UPDATE mises_en_relation SET statut = 'notifie', notifie_le = NOW() WHERE id = ?`, [req.params.id]);
+
+    const creneauTexte = formaterCreneau(sel.entretien_date);
+    const messageNotification = `L'entreprise ${sel.nom_societe} a sélectionné ton profil pour le poste "${sel.poste}".\n`
+      + `Entretien prévu : ${creneauTexte}\n`
+      + `Lieu : ${sel.entretien_lieu || 'à confirmer'}\n`
+      + (sel.entretien_notes ? `Informations complémentaires : ${sel.entretien_notes}\n` : '')
+      + `Tu vas être recontacté(e) prochainement.`;
 
     await pool.query(
       `INSERT INTO notifications (user_id, type, titre, message, demande_id, candidat_id)
@@ -415,19 +448,44 @@ router.post('/mises-en-relation/:id/notifier', async (req, res) => {
       [
         sel.candidat_user_id,
         `Tu as été sélectionné(e) par ${sel.nom_societe} !`,
-        `L'entreprise ${sel.nom_societe} a sélectionné ton profil pour le poste "${sel.poste}". Tu vas être recontacté(e) prochainement.`,
+        messageNotification,
         sel.demande_id,
         sel.candidat_id
       ]
     );
 
-    if (!resultat.envoye) {
+    if (resultatWhatsapp.envoye) {
+      return res.json({ message: 'Candidat notifié par WhatsApp avec succès (avec le créneau d\'entretien).', whatsapp: resultatWhatsapp });
+    }
+
+    const raisonsWhatsapp = {
+      configuration_incomplete: 'la configuration WhatsApp (.env) est incomplète sur le serveur.',
+      telephone_manquant: 'le numéro de téléphone du candidat est manquant ou invalide.',
+      erreur_api: 'l\'API WhatsApp a refusé l\'envoi (voir détails techniques).'
+    };
+    const raisonWhatsapp = raisonsWhatsapp[resultatWhatsapp.raison] || resultatWhatsapp.raison;
+
+    if (resultatEmail && resultatEmail.envoye) {
       return res.json({
-        message: 'Candidat marqué comme notifié, mais l\'envoi WhatsApp a échoué (voir logs serveur). La notification est bien visible dans son espace candidat.',
-        whatsapp: resultat
+        message: `Candidat marqué comme notifié. L'envoi WhatsApp a échoué (${raisonWhatsapp}), `
+          + 'mais un EMAIL de secours avec le créneau d\'entretien a bien été envoyé au candidat.',
+        whatsapp: resultatWhatsapp,
+        email: resultatEmail
       });
     }
-    res.json({ message: 'Candidat notifié par WhatsApp avec succès.', whatsapp: resultat });
+
+    const raisonsEmail = {
+      configuration_incomplete: 'la configuration email (SMTP, .env) est aussi incomplète sur le serveur.',
+      email_manquant: 'le candidat n\'a pas d\'adresse email valide.',
+      erreur_smtp: 'l\'envoi de l\'email de secours a échoué (voir détails techniques).'
+    };
+    return res.json({
+      message: 'Candidat marqué comme notifié, mais ni WhatsApp ni l\'email de secours n\'ont pu être envoyés '
+        + `(WhatsApp : ${raisonWhatsapp} ; Email : ${raisonsEmail[resultatEmail?.raison] || resultatEmail?.raison}). `
+        + 'La notification (avec le créneau d\'entretien) reste bien visible dans son espace candidat.',
+      whatsapp: resultatWhatsapp,
+      email: resultatEmail
+    });
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 

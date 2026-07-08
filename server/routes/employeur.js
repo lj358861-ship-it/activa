@@ -149,8 +149,21 @@ router.get('/propositions', verifierToken, autoriserRoles('employeur'), async (r
   }
 });
 
-// L'employeur sélectionne un des profils proposés pour une demande donnée
+// L'employeur sélectionne un des profils proposés pour une demande donnée,
+// et choisit dans la foulée un créneau d'entretien (date/heure obligatoires,
+// lieu et notes complémentaires optionnels). Ces informations seront incluses
+// dans le message WhatsApp envoyé au candidat par l'APRJ.
 router.put('/mises-en-relation/:id/selectionner', verifierToken, autoriserRoles('employeur'), async (req, res) => {
+  const { entretien_date, entretien_lieu, entretien_notes } = req.body;
+
+  if (!entretien_date) {
+    return res.status(400).json({ erreur: 'Merci de choisir une date et une heure d\'entretien.' });
+  }
+  const dateEntretien = new Date(entretien_date);
+  if (Number.isNaN(dateEntretien.getTime())) {
+    return res.status(400).json({ erreur: 'Date d\'entretien invalide.' });
+  }
+
   try {
     const [empRows] = await pool.query('SELECT id FROM employeurs WHERE user_id = ?', [req.utilisateur.id]);
     if (!empRows.length) return res.status(404).json({ erreur: 'Profil employeur introuvable.' });
@@ -164,10 +177,13 @@ router.put('/mises-en-relation/:id/selectionner', verifierToken, autoriserRoles(
     if (!rows.length) return res.status(404).json({ erreur: 'Proposition introuvable.' });
 
     await pool.query(
-      `UPDATE mises_en_relation SET statut = 'selectionne', selectionne_le = NOW() WHERE id = ?`,
-      [req.params.id]
+      `UPDATE mises_en_relation
+       SET statut = 'selectionne', selectionne_le = NOW(),
+           entretien_date = ?, entretien_lieu = ?, entretien_notes = ?
+       WHERE id = ?`,
+      [dateEntretien, entretien_lieu || null, entretien_notes || null, req.params.id]
     );
-    res.json({ message: 'Profil sélectionné. L\'APRJ va notifier le candidat.' });
+    res.json({ message: 'Profil sélectionné avec le créneau d\'entretien. L\'APRJ va notifier le candidat.' });
   } catch (e) {
     console.error(e);
     res.status(500).json({ erreur: 'Erreur serveur.' });

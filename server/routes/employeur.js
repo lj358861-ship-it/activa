@@ -123,4 +123,55 @@ router.post('/notifications/:id/lu', verifierToken, autoriserRoles('employeur'),
   }
 });
 
+// Liste des profils proposés par l'APRJ pour les demandes de cet employeur,
+// avec le profil complet du candidat (photo, CV, détails).
+router.get('/propositions', verifierToken, autoriserRoles('employeur'), async (req, res) => {
+  try {
+    const [empRows] = await pool.query('SELECT id FROM employeurs WHERE user_id = ?', [req.utilisateur.id]);
+    if (!empRows.length) return res.status(404).json({ erreur: 'Profil employeur introuvable.' });
+
+    const [rows] = await pool.query(
+      `SELECT mer.id, mer.statut, mer.score_correspondance, mer.selectionne_le, mer.notifie_le, mer.created_at,
+              d.id AS demande_id, d.poste,
+              c.id AS candidat_id, c.nom_complet, c.ville, c.niveau_etude, c.domaine,
+              c.parcours_professionnel, c.atouts, c.photo_path, c.cv_path
+       FROM mises_en_relation mer
+       JOIN demandes d ON d.id = mer.demande_id
+       JOIN candidats c ON c.id = mer.candidat_id
+       WHERE d.employeur_id = ?
+       ORDER BY d.id DESC, mer.score_correspondance DESC`,
+      [empRows[0].id]
+    );
+    res.json({ propositions: rows });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erreur: 'Erreur serveur.' });
+  }
+});
+
+// L'employeur sélectionne un des profils proposés pour une demande donnée
+router.put('/mises-en-relation/:id/selectionner', verifierToken, autoriserRoles('employeur'), async (req, res) => {
+  try {
+    const [empRows] = await pool.query('SELECT id FROM employeurs WHERE user_id = ?', [req.utilisateur.id]);
+    if (!empRows.length) return res.status(404).json({ erreur: 'Profil employeur introuvable.' });
+
+    const [rows] = await pool.query(
+      `SELECT mer.id FROM mises_en_relation mer
+       JOIN demandes d ON d.id = mer.demande_id
+       WHERE mer.id = ? AND d.employeur_id = ?`,
+      [req.params.id, empRows[0].id]
+    );
+    if (!rows.length) return res.status(404).json({ erreur: 'Proposition introuvable.' });
+
+    await pool.query(
+      `UPDATE mises_en_relation SET statut = 'selectionne', selectionne_le = NOW() WHERE id = ?`,
+      [req.params.id]
+    );
+    res.json({ message: 'Profil sélectionné. L\'APRJ va notifier le candidat.' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erreur: 'Erreur serveur.' });
+  }
+});
+
 module.exports = router;

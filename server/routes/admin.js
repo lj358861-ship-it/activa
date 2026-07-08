@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db');
 const { verifierToken, autoriserRoles } = require('../middleware/auth');
 const uploadImage = require('../middleware/upload-image');
+const { envoyerNotificationSelection } = require('../services/whatsapp');
 
 const router = express.Router();
 
@@ -359,6 +360,73 @@ router.post('/demandes/:demandeId/proposer/:candidatId', async (req, res) => {
     );
 
     res.json({ message: 'Profil proposé avec succès au candidat et à l\'entreprise.' });
+  } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
+});
+
+// Liste des profils sélectionnés par un employeur, en attente de notification au candidat
+router.get('/selections', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT mer.id, mer.statut, mer.score_correspondance, mer.selectionne_le, mer.notifie_le,
+              d.id AS demande_id, d.poste, e.nom_societe,
+              c.id AS candidat_id, c.nom_complet, c.ville, c.niveau_etude, c.domaine, c.photo_path,
+              u.telephone AS telephone_candidat
+       FROM mises_en_relation mer
+       JOIN demandes d ON d.id = mer.demande_id
+       JOIN employeurs e ON e.id = d.employeur_id
+       JOIN candidats c ON c.id = mer.candidat_id
+       JOIN users u ON u.id = c.user_id
+       WHERE mer.statut IN ('selectionne', 'notifie')
+       ORDER BY mer.selectionne_le DESC`
+    );
+    res.json({ selections: rows });
+  } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
+});
+
+// Notifie le candidat par WhatsApp qu'il a été sélectionné par l'entreprise
+router.post('/mises-en-relation/:id/notifier', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT mer.*, d.poste, e.nom_societe, c.nom_complet, c.user_id AS candidat_user_id, u.telephone
+       FROM mises_en_relation mer
+       JOIN demandes d ON d.id = mer.demande_id
+       JOIN employeurs e ON e.id = d.employeur_id
+       JOIN candidats c ON c.id = mer.candidat_id
+       JOIN users u ON u.id = c.user_id
+       WHERE mer.id = ?`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ erreur: 'Sélection introuvable.' });
+    const sel = rows[0];
+
+    const resultat = await envoyerNotificationSelection({
+      telephoneCandidat: sel.telephone,
+      nomCandidat: sel.nom_complet,
+      nomSociete: sel.nom_societe,
+      poste: sel.poste
+    });
+
+    await pool.query(`UPDATE mises_en_relation SET statut = 'notifie', notifie_le = NOW() WHERE id = ?`, [req.params.id]);
+
+    await pool.query(
+      `INSERT INTO notifications (user_id, type, titre, message, demande_id, candidat_id)
+       VALUES (?, 'opportunite_emploi', ?, ?, ?, ?)`,
+      [
+        sel.candidat_user_id,
+        `Tu as été sélectionné(e) par ${sel.nom_societe} !`,
+        `L'entreprise ${sel.nom_societe} a sélectionné ton profil pour le poste "${sel.poste}". Tu vas être recontacté(e) prochainement.`,
+        sel.demande_id,
+        sel.candidat_id
+      ]
+    );
+
+    if (!resultat.envoye) {
+      return res.json({
+        message: 'Candidat marqué comme notifié, mais l\'envoi WhatsApp a échoué (voir logs serveur). La notification est bien visible dans son espace candidat.',
+        whatsapp: resultat
+      });
+    }
+    res.json({ message: 'Candidat notifié par WhatsApp avec succès.', whatsapp: resultat });
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 

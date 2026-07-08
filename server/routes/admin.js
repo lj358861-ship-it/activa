@@ -77,6 +77,34 @@ router.get('/candidats', async (req, res) => {
   }
 });
 
+// Supprime définitivement un candidat (son compte utilisateur, ce qui supprime
+// en cascade son profil, ses mises en relation et ses notifications liées).
+router.delete('/candidats/:id', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT user_id FROM candidats WHERE id = ?', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ erreur: 'Candidat introuvable.' });
+    await pool.query('DELETE FROM users WHERE id = ?', [rows[0].user_id]);
+    res.json({ message: 'Candidat supprimé.' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erreur: 'Erreur serveur.' });
+  }
+});
+
+// Supprime définitivement un employeur (son compte utilisateur, ce qui supprime
+// en cascade ses demandes et les mises en relation associées).
+router.delete('/employeurs/:id', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT user_id FROM employeurs WHERE id = ?', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ erreur: 'Employeur introuvable.' });
+    await pool.query('DELETE FROM users WHERE id = ?', [rows[0].user_id]);
+    res.json({ message: 'Employeur supprimé.' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erreur: 'Erreur serveur.' });
+  }
+});
+
 // Statistiques globales pour le tableau de bord admin
 router.get('/statistiques', async (req, res) => {
   try {
@@ -388,6 +416,16 @@ router.get('/selections', async (req, res) => {
        ORDER BY mer.selectionne_le DESC`
     );
     res.json({ selections: rows });
+  } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
+});
+
+// Supprime une mise en relation (sélection) — utile pour nettoyer les tests
+// ou annuler une sélection faite par erreur avant notification.
+router.delete('/mises-en-relation/:id', async (req, res) => {
+  try {
+    const [resultat] = await pool.query('DELETE FROM mises_en_relation WHERE id = ?', [req.params.id]);
+    if (!resultat.affectedRows) return res.status(404).json({ erreur: 'Sélection introuvable.' });
+    res.json({ message: 'Sélection supprimée.' });
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 

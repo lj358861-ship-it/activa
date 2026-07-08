@@ -634,11 +634,12 @@ async function chargerCandidats() {
     const { candidats } = await appelApi('/admin/candidats');
     conteneur.innerHTML = `
       <table class="liste">
-        <thead><tr><th>Nom</th><th>Domaine</th><th>Niveau</th><th>Ville</th><th>WhatsApp envoyé</th><th>CV</th></tr></thead>
+        <thead><tr><th>Nom</th><th>Téléphone</th><th>Domaine</th><th>Niveau</th><th>Ville</th><th>WhatsApp envoyé</th><th>CV</th></tr></thead>
         <tbody>
           ${candidats.map((c) => `
             <tr>
               <td>${c.nom_complet}</td>
+              <td>${c.telephone ? c.telephone : '<span style="color:var(--rouge);">Non renseigné</span>'}</td>
               <td>${c.domaine}</td>
               <td>${c.niveau_etude}</td>
               <td>${c.ville || '—'}</td>
@@ -757,20 +758,25 @@ async function chargerSelections() {
     if (!selections.length) { conteneur.innerHTML = '<p>Aucune sélection employeur pour le moment.</p>'; return; }
     conteneur.innerHTML = `
       <table class="liste">
-        <thead><tr><th></th><th>Candidat</th><th>Poste</th><th>Entreprise</th><th>Sélectionné le</th><th>Statut</th><th></th></tr></thead>
+        <thead><tr><th></th><th>Candidat</th><th>Téléphone</th><th>Poste</th><th>Entreprise</th><th>Créneau d'entretien</th><th>Statut</th><th></th></tr></thead>
         <tbody>
           ${selections.map((s) => `
             <tr>
               <td>${s.photo_path ? `<img class="miniature" src="/uploads/${s.photo_path}">` : ''}</td>
               <td>${s.nom_complet}</td>
+              <td>${s.telephone_candidat ? s.telephone_candidat : '<span style="color:var(--rouge);">Non renseigné</span>'}</td>
               <td>${s.poste}</td>
               <td>${s.nom_societe}</td>
-              <td>${s.selectionne_le ? new Date(s.selectionne_le).toLocaleDateString('fr-FR') : '—'}</td>
+              <td>
+                ${s.entretien_date ? new Date(s.entretien_date).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : '<span style="color:var(--rouge);">Non défini</span>'}
+                ${s.entretien_lieu ? `<br><span style="font-size:0.8rem; color:var(--gris);">${s.entretien_lieu}</span>` : ''}
+                ${s.entretien_notes ? `<br><span style="font-size:0.78rem; color:var(--gris); font-style:italic;">${s.entretien_notes}</span>` : ''}
+              </td>
               <td><span class="etiquette ${s.statut === 'notifie' ? 'etiquette-valide' : 'etiquette-attente'}">${s.statut === 'notifie' ? 'Candidat notifié' : 'En attente'}</span></td>
               <td>
                 ${s.statut === 'notifie'
                   ? '<span style="color:var(--gris); font-size:0.85rem;">✅ Déjà notifié</span>'
-                  : `<button class="btn btn-or" onclick="notifierCandidat(${s.id}, this)">Notifier candidat (WhatsApp)</button>`}
+                  : `<button class="btn btn-or" onclick="notifierCandidat(${s.id}, this)">Notifier candidat</button>`}
               </td>
             </tr>
           `).join('')}
@@ -785,13 +791,7 @@ async function notifierCandidat(id, bouton) {
   bouton.textContent = 'Envoi...';
   try {
     const reponse = await appelApi(`/admin/mises-en-relation/${id}/notifier`, { method: 'POST' });
-    if (reponse.whatsapp && !reponse.whatsapp.envoye) {
-      alert(reponse.message + (reponse.whatsapp.raison === 'configuration_incomplete'
-        ? '\n\nRaison : la configuration WhatsApp (.env) est incomplète sur le serveur.'
-        : '\n\nDétail technique : ' + JSON.stringify(reponse.whatsapp.details || reponse.whatsapp.raison)));
-    } else {
-      alert(reponse.message);
-    }
+    alert(reponse.message);
     chargerSelections();
   } catch (err) {
     alert(err.message);

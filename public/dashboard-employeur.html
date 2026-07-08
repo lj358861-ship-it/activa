@@ -116,6 +116,32 @@
 
   <div id="vuePropositions" style="display:none;">
     <div id="listePropositions"></div>
+
+    <!-- Modal de choix du créneau d'entretien -->
+    <div id="modalCreneau" style="display:none; position:fixed; inset:0; background:rgba(11,20,38,0.55); z-index:999; align-items:center; justify-content:center; padding:20px;">
+      <div class="carte-formulaire compact" style="max-width:420px; width:100%;">
+        <h3 style="margin-bottom:6px;">Choisir un créneau d'entretien</h3>
+        <p style="font-size:0.85rem; color:var(--ardoise-douce); margin-bottom:18px;">
+          Ces informations seront transmises au candidat par WhatsApp par l'équipe APRJ.
+        </p>
+        <div class="champ">
+          <label for="creneauDate">Date et heure *</label>
+          <input type="datetime-local" id="creneauDate" required>
+        </div>
+        <div class="champ">
+          <label for="creneauLieu">Lieu (adresse, agence, lien visio...)</label>
+          <input type="text" id="creneauLieu" placeholder="Ex : Siège APRJ, Akwa, Douala">
+        </div>
+        <div class="champ">
+          <label for="creneauNotes">Informations complémentaires</label>
+          <textarea id="creneauNotes" rows="3" placeholder="Ex : Prévoir une pièce d'identité, demander M. Etoundi à l'accueil..."></textarea>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+          <button type="button" class="btn btn-contour" style="flex:1;" onclick="fermerModalCreneau()">Annuler</button>
+          <button type="button" class="btn btn-or" style="flex:1;" id="btnConfirmerCreneau" onclick="confirmerSelectionAvecCreneau()">Confirmer la sélection</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -272,16 +298,51 @@ async function chargerPropositions() {
   }
 }
 
-async function selectionnerProfil(id, bouton) {
-  bouton.disabled = true;
-  bouton.textContent = 'Envoi...';
+let miseEnRelationEnCours = null;
+
+// Ouvre le modal pour choisir le créneau d'entretien avant de confirmer la sélection
+function selectionnerProfil(id, bouton) {
+  miseEnRelationEnCours = { id, bouton };
+  document.getElementById('creneauDate').value = '';
+  document.getElementById('creneauLieu').value = '';
+  document.getElementById('creneauNotes').value = '';
+  document.getElementById('modalCreneau').style.display = 'flex';
+}
+
+function fermerModalCreneau() {
+  document.getElementById('modalCreneau').style.display = 'none';
+  miseEnRelationEnCours = null;
+}
+
+async function confirmerSelectionAvecCreneau() {
+  if (!miseEnRelationEnCours) return;
+  const { id, bouton } = miseEnRelationEnCours;
+
+  const entretien_date = document.getElementById('creneauDate').value;
+  const entretien_lieu = document.getElementById('creneauLieu').value.trim();
+  const entretien_notes = document.getElementById('creneauNotes').value.trim();
+
+  if (!entretien_date) {
+    alert('Merci de choisir une date et une heure d\'entretien.');
+    return;
+  }
+
+  const btnConfirmer = document.getElementById('btnConfirmerCreneau');
+  btnConfirmer.disabled = true;
+  btnConfirmer.textContent = 'Envoi...';
+
   try {
-    await appelApi(`/employeurs/mises-en-relation/${id}/selectionner`, { method: 'PUT' });
+    await appelApi(`/employeurs/mises-en-relation/${id}/selectionner`, {
+      method: 'PUT',
+      corpsJson: { entretien_date, entretien_lieu, entretien_notes }
+    });
+    fermerModalCreneau();
     chargerPropositions();
   } catch (err) {
     alert(err.message);
-    bouton.disabled = false;
-    bouton.textContent = 'Sélectionner ce profil';
+  } finally {
+    btnConfirmer.disabled = false;
+    btnConfirmer.textContent = 'Confirmer la sélection';
   }
 }
 </script>

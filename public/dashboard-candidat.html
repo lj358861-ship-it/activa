@@ -194,7 +194,7 @@ async function chargerOpportunites() {
           <h3 style="margin:0 0 6px;">${n.titre}</h3>
           ${!n.lu ? '<span class="etiquette etiquette-attente">Nouveau</span>' : ''}
         </div>
-        <p style="margin:0;">${n.message}</p>
+        <p style="margin:0; white-space:pre-line;">${n.message}</p>
         <p style="font-size:0.8rem; color:var(--gris); margin-top:8px;">${new Date(n.created_at).toLocaleDateString('fr-FR')}</p>
       </div>
     `).join('');

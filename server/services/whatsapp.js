@@ -28,6 +28,24 @@ const axios = require('axios');
 
 const GRAPH_API_VERSION = 'v20.0';
 
+/**
+ * L'API WhatsApp Cloud exige le numéro en format international, chiffres uniquement
+ * (pas de "+", espaces, tirets ou parenthèses). Les candidats/employeurs saisissent
+ * souvent leur numéro en format local (ex: "699 11 22 33") ou avec un "+" devant.
+ * Cette fonction nettoie et ajoute l'indicatif Cameroun (237) si absent.
+ */
+function normaliserTelephone(numero) {
+  if (!numero) return numero;
+  let chiffres = String(numero).replace(/[^\d]/g, '');
+  // Retire un éventuel 00 international (ex: 00237...)
+  if (chiffres.startsWith('00')) chiffres = chiffres.slice(2);
+  // Numéro local camerounais (9 chiffres, commence par 6 ou 2) sans indicatif -> on l'ajoute
+  if (chiffres.length === 9 && (chiffres.startsWith('6') || chiffres.startsWith('2'))) {
+    chiffres = '237' + chiffres;
+  }
+  return chiffres;
+}
+
 function urlEnvoiMessage() {
   return `https://graph.facebook.com/${GRAPH_API_VERSION}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
 }
@@ -53,7 +71,7 @@ async function envoyerNotificationCandidature({ nomComplet, domaine, niveauEtude
 
   const corps = {
     messaging_product: 'whatsapp',
-    to: process.env.ADMIN_WHATSAPP_NUMBER,
+    to: normaliserTelephone(process.env.ADMIN_WHATSAPP_NUMBER),
     type: 'template',
     template: {
       name: process.env.WHATSAPP_TEMPLATE_NAME || 'nouvelle_candidature',
@@ -89,7 +107,7 @@ async function envoyerNotificationCandidature({ nomComplet, domaine, niveauEtude
 async function envoyerMessageTexte(destinataire, texte) {
   const corps = {
     messaging_product: 'whatsapp',
-    to: destinataire,
+    to: normaliserTelephone(destinataire),
     type: 'text',
     text: { body: texte }
   };
@@ -121,7 +139,7 @@ async function envoyerNotificationSelection({ telephoneCandidat, nomCandidat, no
   }
   const corps = {
     messaging_product: 'whatsapp',
-    to: telephoneCandidat,
+    to: normaliserTelephone(telephoneCandidat),
     type: 'template',
     template: {
       name: process.env.WHATSAPP_TEMPLATE_SELECTION_NAME || 'profil_selectionne',
@@ -147,4 +165,4 @@ async function envoyerNotificationSelection({ telephoneCandidat, nomCandidat, no
   }
 }
 
-module.exports = { envoyerNotificationCandidature, envoyerMessageTexte, envoyerNotificationSelection };
+module.exports = { envoyerNotificationCandidature, envoyerMessageTexte, envoyerNotificationSelection, normaliserTelephone };

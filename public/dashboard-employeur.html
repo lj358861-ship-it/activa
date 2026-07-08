@@ -246,18 +246,18 @@ async function chargerPropositions() {
     conteneur.innerHTML = Object.values(parDemande).map((groupe) => `
       <h3 style="margin-bottom:10px;">Poste : ${groupe.poste}</h3>
       ${groupe.profils.map((p) => `
-        <div class="carte" style="display:flex; gap:18px; align-items:center; margin-bottom:14px;">
+        <div class="carte carte-proposition">
           ${p.photo_path
-            ? `<img src="/uploads/${p.photo_path}" style="width:84px; height:84px; border-radius:10px; object-fit:cover; flex-shrink:0;">`
-            : `<div class="carte-icone" style="width:84px; height:84px; font-size:2rem; flex-shrink:0;">👤</div>`}
-          <div style="flex:1;">
+            ? `<img src="/uploads/${p.photo_path}" class="proposition-photo">`
+            : `<div class="carte-icone proposition-photo" style="font-size:2rem;">👤</div>`}
+          <div class="proposition-infos">
             <p style="margin:0 0 4px;"><strong>${p.nom_complet}</strong> — ${p.ville || '—'} — ${p.niveau_etude} (${p.domaine})</p>
             ${p.parcours_professionnel ? `<p style="margin:0 0 4px;">${p.parcours_professionnel}</p>` : ''}
             ${p.atouts ? `<p style="margin:0 0 4px;"><em>Atouts : ${p.atouts}</em></p>` : ''}
             <p style="margin:0 0 4px;">Correspondance : <span class="etiquette etiquette-score">${p.score_correspondance}%</span></p>
             ${p.cv_path ? `<a href="/uploads/${p.cv_path}" target="_blank">Voir le CV</a>` : ''}
           </div>
-          <div style="text-align:right; flex-shrink:0;">
+          <div class="proposition-action">
             ${p.statut === 'propose'
               ? `<button class="btn btn-or" onclick="selectionnerProfil(${p.id}, this)">Sélectionner ce profil</button>`
               : p.statut === 'selectionne'

@@ -785,7 +785,13 @@ async function notifierCandidat(id, bouton) {
   bouton.textContent = 'Envoi...';
   try {
     const reponse = await appelApi(`/admin/mises-en-relation/${id}/notifier`, { method: 'POST' });
-    alert(reponse.message);
+    if (reponse.whatsapp && !reponse.whatsapp.envoye) {
+      alert(reponse.message + (reponse.whatsapp.raison === 'configuration_incomplete'
+        ? '\n\nRaison : la configuration WhatsApp (.env) est incomplète sur le serveur.'
+        : '\n\nDétail technique : ' + JSON.stringify(reponse.whatsapp.details || reponse.whatsapp.raison)));
+    } else {
+      alert(reponse.message);
+    }
     chargerSelections();
   } catch (err) {
     alert(err.message);

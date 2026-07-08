@@ -5,6 +5,7 @@ const upload = require('../middleware/upload');
 const uploadImage = require('../middleware/upload-image');
 const { verifierToken, autoriserRoles } = require('../middleware/auth');
 const { envoyerNotificationCandidature } = require('../services/whatsapp');
+const { enregistrerFichier } = require('../services/fichiers');
 
 const router = express.Router();
 
@@ -40,8 +41,8 @@ router.post(
       );
       const userId = resultUser.insertId;
 
-      const cvPath = req.files?.cv?.[0]?.filename || null;
-      const photoPath = req.files?.photo?.[0]?.filename || null;
+      const cvPath = await enregistrerFichier(req.files?.cv?.[0], connexion);
+      const photoPath = await enregistrerFichier(req.files?.photo?.[0], connexion);
 
       await connexion.query(
         `INSERT INTO candidats
@@ -109,8 +110,8 @@ router.put(
         nom_complet, ville || null, niveau_etude, domaine,
         parcours_pedagogique || null, parcours_professionnel || null, atouts || null
       ];
-      if (req.files?.cv?.[0]) { champs.push('cv_path = ?'); valeurs.push(req.files.cv[0].filename); }
-      if (req.files?.photo?.[0]) { champs.push('photo_path = ?'); valeurs.push(req.files.photo[0].filename); }
+      if (req.files?.cv?.[0]) { champs.push('cv_path = ?'); valeurs.push(await enregistrerFichier(req.files.cv[0])); }
+      if (req.files?.photo?.[0]) { champs.push('photo_path = ?'); valeurs.push(await enregistrerFichier(req.files.photo[0])); }
       valeurs.push(req.utilisateur.id);
       await pool.query(`UPDATE candidats SET ${champs.join(', ')} WHERE user_id = ?`, valeurs);
       res.json({ message: 'Profil mis à jour.' });

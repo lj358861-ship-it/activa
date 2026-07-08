@@ -3,6 +3,7 @@ const pool = require('../db');
 const { verifierToken, autoriserRoles } = require('../middleware/auth');
 const uploadImage = require('../middleware/upload-image');
 const { envoyerNotificationSelection } = require('../services/whatsapp');
+const { enregistrerFichier } = require('../services/fichiers');
 
 const router = express.Router();
 
@@ -98,7 +99,7 @@ router.post('/services', uploadImage.single('photo'), async (req, res) => {
   const { titre, description, icone, ordre } = req.body;
   if (!titre) return res.status(400).json({ erreur: 'Le titre est obligatoire.' });
   try {
-    const photoPath = req.file?.filename || null;
+    const photoPath = await enregistrerFichier(req.file);
     const [result] = await pool.query(
       'INSERT INTO services (titre, description, icone, photo_path, ordre) VALUES (?, ?, ?, ?, ?)',
       [titre, description || null, icone || '📌', photoPath, ordre || 0]
@@ -110,7 +111,7 @@ router.post('/services', uploadImage.single('photo'), async (req, res) => {
 router.put('/services/:id', uploadImage.single('photo'), async (req, res) => {
   const { titre, description, icone, ordre, actif } = req.body;
   try {
-    const photoPath = req.file?.filename || null;
+    const photoPath = await enregistrerFichier(req.file);
     if (photoPath) {
       await pool.query(
         'UPDATE services SET titre = ?, description = ?, icone = ?, photo_path = ?, ordre = ?, actif = ? WHERE id = ?',
@@ -146,7 +147,7 @@ router.post('/evenements', uploadImage.single('image'), async (req, res) => {
   const { type, titre, description, lieu, date_debut, date_fin, ordre } = req.body;
   if (!titre) return res.status(400).json({ erreur: 'Le titre est obligatoire.' });
   try {
-    const imagePath = req.file ? req.file.filename : null;
+    const imagePath = await enregistrerFichier(req.file);
     const [result] = await pool.query(
       `INSERT INTO evenements (type, titre, description, lieu, date_debut, date_fin, image_path, ordre)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -167,7 +168,7 @@ router.put('/evenements/:id', uploadImage.single('image'), async (req, res) => {
       type || 'autre', titre, description || null, lieu || null,
       date_debut || null, date_fin || null, ordre || 0, actif === undefined ? true : actif
     ];
-    if (req.file) { champs.push('image_path = ?'); valeurs.push(req.file.filename); }
+    if (req.file) { champs.push('image_path = ?'); valeurs.push(await enregistrerFichier(req.file)); }
     valeurs.push(req.params.id);
     await pool.query(`UPDATE evenements SET ${champs.join(', ')} WHERE id = ?`, valeurs);
     res.json({ message: 'Événement mis à jour.' });
@@ -194,7 +195,7 @@ router.post('/collaborateurs', uploadImage.single('photo'), async (req, res) => 
   const { nom, poste, bio, ordre } = req.body;
   if (!nom) return res.status(400).json({ erreur: 'Le nom est obligatoire.' });
   try {
-    const photoPath = req.file ? req.file.filename : null;
+    const photoPath = await enregistrerFichier(req.file);
     const [result] = await pool.query(
       'INSERT INTO collaborateurs (nom, poste, bio, photo_path, ordre) VALUES (?, ?, ?, ?, ?)',
       [nom, poste || null, bio || null, photoPath, ordre || 0]
@@ -208,7 +209,7 @@ router.put('/collaborateurs/:id', uploadImage.single('photo'), async (req, res) 
   try {
     const champs = ['nom = ?', 'poste = ?', 'bio = ?', 'ordre = ?', 'actif = ?'];
     const valeurs = [nom, poste || null, bio || null, ordre || 0, actif === undefined ? true : actif];
-    if (req.file) { champs.push('photo_path = ?'); valeurs.push(req.file.filename); }
+    if (req.file) { champs.push('photo_path = ?'); valeurs.push(await enregistrerFichier(req.file)); }
     valeurs.push(req.params.id);
     await pool.query(`UPDATE collaborateurs SET ${champs.join(', ')} WHERE id = ?`, valeurs);
     res.json({ message: 'Collaborateur mis à jour.' });
@@ -258,7 +259,7 @@ router.post('/contenu-hero', uploadImage.single('image'), async (req, res) => {
   const { page_cle, slogan, sous_texte, ordre } = req.body;
   if (!page_cle || !slogan) return res.status(400).json({ erreur: 'Page et slogan sont obligatoires.' });
   try {
-    const imagePath = req.file ? req.file.filename : null;
+    const imagePath = await enregistrerFichier(req.file);
     const [result] = await pool.query(
       'INSERT INTO contenu_hero (page_cle, image_path, slogan, sous_texte, ordre) VALUES (?, ?, ?, ?, ?)',
       [page_cle, imagePath, slogan, sous_texte || null, ordre || 0]
@@ -272,7 +273,7 @@ router.put('/contenu-hero/:id', uploadImage.single('image'), async (req, res) =>
   try {
     const champs = ['page_cle = ?', 'slogan = ?', 'sous_texte = ?', 'ordre = ?', 'actif = ?'];
     const valeurs = [page_cle, slogan, sous_texte || null, ordre || 0, actif === undefined ? true : actif];
-    if (req.file) { champs.push('image_path = ?'); valeurs.push(req.file.filename); }
+    if (req.file) { champs.push('image_path = ?'); valeurs.push(await enregistrerFichier(req.file)); }
     valeurs.push(req.params.id);
     await pool.query(`UPDATE contenu_hero SET ${champs.join(', ')} WHERE id = ?`, valeurs);
     res.json({ message: 'Diapositive mise à jour.' });

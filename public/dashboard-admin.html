@@ -59,6 +59,7 @@
     <div class="onglet" data-onglet="candidats">Candidats</div>
     <div class="onglet" data-onglet="demandes">Demandes</div>
     <div class="onglet" data-onglet="matching">Mise en relation</div>
+    <div class="onglet" data-onglet="selections">Sélections</div>
     <div class="onglet" data-onglet="services">Services</div>
     <div class="onglet" data-onglet="evenements">Événements</div>
     <div class="onglet" data-onglet="collaborateurs">Collaborateurs</div>
@@ -80,6 +81,9 @@
       </div>
     </div>
     <div id="resultatsMatching" style="margin-top:22px;"></div>
+  </div>
+  <div id="vueSelections" style="display:none;">
+    <div id="listeSelections"></div>
   </div>
 
   <div id="vueServices" style="display:none;">
@@ -198,7 +202,7 @@ document.querySelectorAll('.onglet').forEach((o) => {
   o.addEventListener('click', () => {
     document.querySelectorAll('.onglet').forEach((x) => x.classList.remove('actif'));
     o.classList.add('actif');
-    ['vueAttente', 'vueEmployeurs', 'vueCandidats', 'vueDemandes', 'vueMatching', 'vueServices', 'vueEvenements', 'vueCollaborateurs', 'vueMessages', 'vueHero']
+    ['vueAttente', 'vueEmployeurs', 'vueCandidats', 'vueDemandes', 'vueMatching', 'vueSelections', 'vueServices', 'vueEvenements', 'vueCollaborateurs', 'vueMessages', 'vueHero']
       .forEach((id) => document.getElementById(id).style.display = 'none');
     const cible = o.dataset.onglet;
     if (cible === 'attente') { document.getElementById('vueAttente').style.display = 'block'; chargerEnAttente(); }
@@ -206,6 +210,7 @@ document.querySelectorAll('.onglet').forEach((o) => {
     if (cible === 'candidats') { document.getElementById('vueCandidats').style.display = 'block'; chargerCandidats(); }
     if (cible === 'demandes') { document.getElementById('vueDemandes').style.display = 'block'; chargerAdminDemandes(); }
     if (cible === 'matching') { document.getElementById('vueMatching').style.display = 'block'; chargerSelectDemandes(); }
+    if (cible === 'selections') { document.getElementById('vueSelections').style.display = 'block'; chargerSelections(); }
     if (cible === 'services') { document.getElementById('vueServices').style.display = 'block'; chargerAdminServices(); }
     if (cible === 'evenements') { document.getElementById('vueEvenements').style.display = 'block'; chargerAdminEvenements(); }
     if (cible === 'collaborateurs') { document.getElementById('vueCollaborateurs').style.display = 'block'; chargerAdminCollaborateurs(); }
@@ -740,6 +745,52 @@ async function proposerCandidat(demandeId, candidatId, score, bouton) {
     alert(err.message);
     bouton.disabled = false;
     bouton.textContent = 'Proposer ce profil';
+  }
+}
+
+/* ===== SÉLECTIONS EMPLOYEURS -> NOTIFICATION WHATSAPP CANDIDAT ===== */
+async function chargerSelections() {
+  const conteneur = document.getElementById('listeSelections');
+  conteneur.innerHTML = '<p>Chargement...</p>';
+  try {
+    const { selections } = await appelApi('/admin/selections');
+    if (!selections.length) { conteneur.innerHTML = '<p>Aucune sélection employeur pour le moment.</p>'; return; }
+    conteneur.innerHTML = `
+      <table class="liste">
+        <thead><tr><th></th><th>Candidat</th><th>Poste</th><th>Entreprise</th><th>Sélectionné le</th><th>Statut</th><th></th></tr></thead>
+        <tbody>
+          ${selections.map((s) => `
+            <tr>
+              <td>${s.photo_path ? `<img class="miniature" src="/uploads/${s.photo_path}">` : ''}</td>
+              <td>${s.nom_complet}</td>
+              <td>${s.poste}</td>
+              <td>${s.nom_societe}</td>
+              <td>${s.selectionne_le ? new Date(s.selectionne_le).toLocaleDateString('fr-FR') : '—'}</td>
+              <td><span class="etiquette ${s.statut === 'notifie' ? 'etiquette-valide' : 'etiquette-attente'}">${s.statut === 'notifie' ? 'Candidat notifié' : 'En attente'}</span></td>
+              <td>
+                ${s.statut === 'notifie'
+                  ? '<span style="color:var(--gris); font-size:0.85rem;">✅ Déjà notifié</span>'
+                  : `<button class="btn btn-or" onclick="notifierCandidat(${s.id}, this)">Notifier candidat (WhatsApp)</button>`}
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+async function notifierCandidat(id, bouton) {
+  bouton.disabled = true;
+  bouton.textContent = 'Envoi...';
+  try {
+    const reponse = await appelApi(`/admin/mises-en-relation/${id}/notifier`, { method: 'POST' });
+    alert(reponse.message);
+    chargerSelections();
+  } catch (err) {
+    alert(err.message);
+    bouton.disabled = false;
+    bouton.textContent = 'Notifier candidat (WhatsApp)';
   }
 }
 

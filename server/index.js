@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 
 const { initialiserBaseDeDonnees } = require('./scripts/init-db');
+const pool = require('./db');
 const authRoutes = require('./routes/auth');
 const candidatRoutes = require('./routes/candidat');
 const employeurRoutes = require('./routes/employeur');
@@ -18,8 +19,20 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Fichiers uploadés (CV, photos) accessibles publiquement (nécessaire pour les liens WhatsApp)
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+// Fichiers uploadés (CV, photos) : servis depuis la base de données (table `fichiers`),
+// pas depuis le disque, qui n'est pas persistant sans volume Railway payant.
+app.get('/uploads/:id', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT mimetype, donnees FROM fichiers WHERE id = ?', [req.params.id]);
+    if (!rows.length) return res.status(404).send('Fichier introuvable.');
+    res.set('Content-Type', rows[0].mimetype);
+    res.set('Cache-Control', 'public, max-age=31536000');
+    res.send(rows[0].donnees);
+  } catch (e) {
+    console.error(e);
+    res.status(500).send('Erreur serveur.');
+  }
+});
 
 // API
 app.use('/api/auth', authRoutes);

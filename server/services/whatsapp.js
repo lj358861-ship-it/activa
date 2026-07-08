@@ -102,4 +102,49 @@ async function envoyerMessageTexte(destinataire, texte) {
   }
 }
 
-module.exports = { envoyerNotificationCandidature, envoyerMessageTexte };
+/**
+ * Notifie un CANDIDAT (via template Meta approuvé) qu'une entreprise a sélectionné
+ * son profil pour un poste. Nécessite un template Meta distinct de celui utilisé
+ * pour prévenir l'admin (voir note en tête de fichier).
+ *
+ * Étape à faire une seule fois dans Meta Business Manager :
+ *   1. Créer un template nommé comme WHATSAPP_TEMPLATE_SELECTION_NAME (ex: "profil_selectionne")
+ *   2. Catégorie : Utility
+ *   3. Corps du message avec variables, ex :
+ *      "Bonjour {{1}}, l'entreprise {{2}} a sélectionné ton profil pour le poste
+ *       {{3}}. L'APRJ ou l'entreprise te contactera bientôt. Bonne chance !"
+ */
+async function envoyerNotificationSelection({ telephoneCandidat, nomCandidat, nomSociete, poste }) {
+  if (!process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) {
+    console.warn('[WhatsApp] Configuration incomplète (.env) — notification candidat non envoyée.');
+    return { envoye: false, raison: 'configuration_incomplete' };
+  }
+  const corps = {
+    messaging_product: 'whatsapp',
+    to: telephoneCandidat,
+    type: 'template',
+    template: {
+      name: process.env.WHATSAPP_TEMPLATE_SELECTION_NAME || 'profil_selectionne',
+      language: { code: 'fr' },
+      components: [
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: nomCandidat },
+            { type: 'text', text: nomSociete },
+            { type: 'text', text: poste }
+          ]
+        }
+      ]
+    }
+  };
+  try {
+    const reponse = await axios.post(urlEnvoiMessage(), corps, enteteAuth());
+    return { envoye: true, id: reponse.data.messages?.[0]?.id };
+  } catch (erreur) {
+    console.error('[WhatsApp] Échec envoi notification sélection:', erreur.response?.data || erreur.message);
+    return { envoye: false, raison: 'erreur_api', details: erreur.response?.data || erreur.message };
+  }
+}
+
+module.exports = { envoyerNotificationCandidature, envoyerMessageTexte, envoyerNotificationSelection };

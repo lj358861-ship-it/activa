@@ -69,6 +69,9 @@ CREATE TABLE IF NOT EXISTS mises_en_relation (
   demande_id INT NOT NULL,
   candidat_id INT NOT NULL,
   score_correspondance INT DEFAULT 0,
+  statut ENUM('propose', 'selectionne', 'notifie') DEFAULT 'propose',
+  selectionne_le TIMESTAMP NULL,
+  notifie_le TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (demande_id) REFERENCES demandes(id) ON DELETE CASCADE,
   FOREIGN KEY (candidat_id) REFERENCES candidats(id) ON DELETE CASCADE

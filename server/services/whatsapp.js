@@ -55,7 +55,8 @@ function enteteAuth() {
     headers: {
       Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
       'Content-Type': 'application/json'
-    }
+    },
+    timeout: 10000 // évite que la requête reste bloquée indéfiniment
   };
 }
 

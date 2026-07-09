@@ -9,7 +9,12 @@ const pool = mysql.createPool({
   database: process.env.MYSQL_DATABASE || process.env.MYSQLDATABASE || 'activa_recrutement',
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  // IMPORTANT : évite que mysql2 convertisse les colonnes DATETIME en objets JS Date
+  // (ce qui déclenche des conversions de fuseau horaire imprévisibles selon le
+  // fuseau du serveur, du navigateur, etc.). On garde des chaînes brutes
+  // "YYYY-MM-DD HH:MM:SS" partout, sans aucune conversion de fuseau.
+  dateStrings: true
 });
 
 module.exports = pool;

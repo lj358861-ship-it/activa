@@ -411,6 +411,10 @@ a { color: inherit; text-decoration: none; }
 .tb-stat .label { font-size: 0.8rem; color: var(--ardoise-douce); }
 
 table.liste { width: 100%; border-collapse: collapse; background: var(--blanc); border-radius: var(--rayon); overflow: hidden; box-shadow: var(--ombre); }
+@media (max-width: 720px) {
+  table.liste { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap; }
+  table.liste thead, table.liste tbody, table.liste tr { display: table; width: 100%; table-layout: fixed; }
+}
 table.liste th, table.liste td { padding: 12px 16px; text-align: left; font-size: 0.88rem; border-bottom: 1px solid var(--bordure); }
 table.liste tbody tr { transition: background 0.15s ease; }
 table.liste tbody tr:hover { background: var(--ivoire); }
@@ -424,6 +428,46 @@ table.liste tr:last-child td { border-bottom: none; }
 .onglets { display: flex; gap: 6px; border-bottom: 2px solid var(--bordure); margin-bottom: 24px; }
 .onglet { padding: 10px 18px; cursor: pointer; font-weight: 600; font-size: 0.9rem; color: var(--ardoise-douce); border-bottom: 3px solid transparent; }
 .onglet.actif { color: var(--marine); border-color: var(--or); }
+
+.onglets-toggle {
+  display: none;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  background: #fff;
+  border: 2px solid var(--bordure);
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--marine);
+  cursor: pointer;
+}
+.onglets-toggle-icone { transition: transform 0.2s ease; color: var(--or); }
+
+@media (max-width: 720px) {
+  .onglets-toggle { display: flex; }
+  .onglets {
+    display: none;
+    flex-direction: column;
+    gap: 0;
+    border: 2px solid var(--bordure);
+    border-radius: 10px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .onglets.onglets-ouvert { display: flex; }
+  .onglet {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--bordure);
+    border-left: 3px solid transparent;
+  }
+  .onglet:last-child { border-bottom: none; }
+  .onglet.actif { background: var(--creme, #faf6ef); border-left-color: var(--or); border-bottom-color: var(--bordure); }
+}
 
 .pied {
   background: var(--marine);

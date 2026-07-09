@@ -125,8 +125,12 @@
           Ces informations seront transmises au candidat par WhatsApp par l'équipe APRJ.
         </p>
         <div class="champ">
-          <label for="creneauDate">Date et heure *</label>
-          <input type="datetime-local" id="creneauDate" required>
+          <label for="creneauDate">Date *</label>
+          <input type="date" id="creneauDate" required>
+        </div>
+        <div class="champ">
+          <label for="creneauHeure">Heure *</label>
+          <input type="time" id="creneauHeure" required>
         </div>
         <div class="champ">
           <label for="creneauLieu">Lieu (adresse, agence, lien visio...)</label>
@@ -304,6 +308,7 @@ let miseEnRelationEnCours = null;
 function selectionnerProfil(id, bouton) {
   miseEnRelationEnCours = { id, bouton };
   document.getElementById('creneauDate').value = '';
+  document.getElementById('creneauHeure').value = '';
   document.getElementById('creneauLieu').value = '';
   document.getElementById('creneauNotes').value = '';
   document.getElementById('modalCreneau').style.display = 'flex';
@@ -318,14 +323,16 @@ async function confirmerSelectionAvecCreneau() {
   if (!miseEnRelationEnCours) return;
   const { id, bouton } = miseEnRelationEnCours;
 
-  const entretien_date = document.getElementById('creneauDate').value;
+  const date = document.getElementById('creneauDate').value;
+  const heure = document.getElementById('creneauHeure').value;
   const entretien_lieu = document.getElementById('creneauLieu').value.trim();
   const entretien_notes = document.getElementById('creneauNotes').value.trim();
 
-  if (!entretien_date) {
-    alert('Merci de choisir une date et une heure d\'entretien.');
+  if (!date || !heure) {
+    alert('Merci de choisir une date ET une heure d\'entretien.');
     return;
   }
+  const entretien_date = `${date}T${heure}`;
 
   const btnConfirmer = document.getElementById('btnConfirmerCreneau');
   btnConfirmer.disabled = true;

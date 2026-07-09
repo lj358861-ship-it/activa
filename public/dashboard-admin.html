@@ -16,7 +16,7 @@
   <img src="/logo-embleme.png" alt="Logo APRJ" class="aprj-intro-logo">
   <div class="aprj-intro-texte">
     <strong>APRJ</strong>
-    <span>Ensemble pour demain</span>
+    <span>Tenons-nous ensemble pour construire un lendemain meilleur</span>
   </div>
 </div>
 <script>
@@ -53,7 +53,11 @@
 
   <div class="tb-stats" id="stats"></div>
 
-  <div class="onglets">
+  <button class="onglets-toggle" id="ongletsToggle" type="button" aria-expanded="false">
+    <span id="ongletsToggleLabel">Employeurs en attente</span>
+    <span class="onglets-toggle-icone">▾</span>
+  </button>
+  <div class="onglets" id="onglets">
     <div class="onglet actif" data-onglet="attente">Employeurs en attente</div>
     <div class="onglet" data-onglet="employeurs">Tous les employeurs</div>
     <div class="onglet" data-onglet="candidats">Candidats</div>
@@ -198,10 +202,22 @@
 <script>
 exigerRole('admin');
 
+const boutonOngletsToggle = document.getElementById('ongletsToggle');
+const conteneurOnglets = document.getElementById('onglets');
+const libelleOngletsToggle = document.getElementById('ongletsToggleLabel');
+
+boutonOngletsToggle.addEventListener('click', () => {
+  const ouvert = conteneurOnglets.classList.toggle('onglets-ouvert');
+  boutonOngletsToggle.setAttribute('aria-expanded', ouvert ? 'true' : 'false');
+});
+
 document.querySelectorAll('.onglet').forEach((o) => {
   o.addEventListener('click', () => {
     document.querySelectorAll('.onglet').forEach((x) => x.classList.remove('actif'));
     o.classList.add('actif');
+    libelleOngletsToggle.textContent = o.textContent;
+    conteneurOnglets.classList.remove('onglets-ouvert');
+    boutonOngletsToggle.setAttribute('aria-expanded', 'false');
     ['vueAttente', 'vueEmployeurs', 'vueCandidats', 'vueDemandes', 'vueMatching', 'vueSelections', 'vueServices', 'vueEvenements', 'vueCollaborateurs', 'vueMessages', 'vueHero']
       .forEach((id) => document.getElementById(id).style.display = 'none');
     const cible = o.dataset.onglet;

@@ -121,17 +121,25 @@ async function envoyerMessageTexte(destinataire, texte) {
   }
 }
 
+const NOMS_JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+const NOMS_MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
 /**
  * Met en forme le créneau d'entretien pour l'insérer dans le message WhatsApp.
- * entretienDate est une valeur Date (ou string ISO) venant de la base de données.
+ * entretienDate est la chaîne brute MySQL "YYYY-MM-DD HH:MM:SS" (voir server/db.js,
+ * dateStrings: true). On la parse à la main plutôt que via `new Date(...)` pour
+ * éviter toute conversion de fuseau horaire : l'heure choisie par l'employeur
+ * doit rester EXACTEMENT la même partout (dashboard, WhatsApp, email).
  */
 function formaterCreneau(entretienDate) {
   if (!entretienDate) return 'à confirmer';
-  const date = new Date(entretienDate);
-  if (Number.isNaN(date.getTime())) return 'à confirmer';
-  const jour = date.toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-  const heure = date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  return `${jour} à ${heure}`;
+  const correspondance = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(entretienDate));
+  if (!correspondance) return 'à confirmer';
+  const [, annee, mois, jour, heure, minute] = correspondance;
+  // Calcul du jour de la semaine sans passer par un Date local (Date.UTC est sûr
+  // ici car on ne s'en sert que pour obtenir l'index du jour, pas une heure).
+  const indexJour = new Date(Date.UTC(Number(annee), Number(mois) - 1, Number(jour))).getUTCDay();
+  return `${NOMS_JOURS[indexJour]} ${jour} ${NOMS_MOIS[Number(mois) - 1]} ${annee} à ${heure}h${minute}`;
 }
 
 /**

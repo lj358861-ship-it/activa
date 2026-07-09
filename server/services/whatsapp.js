@@ -132,7 +132,7 @@ const NOMS_MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juill
  * doit rester EXACTEMENT la même partout (dashboard, WhatsApp, email).
  */
 function formaterCreneau(entretienDate) {
-  if (!entretienDate) return 'à confirmer';
+  if (!entretienDate || entretienDate === 'null' || entretienDate === 'undefined') return 'à confirmer';
   const correspondance = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(entretienDate));
   if (!correspondance) return 'à confirmer';
   const [, annee, mois, jour, heure, minute] = correspondance;

@@ -123,6 +123,20 @@ document.getElementById('formContact').addEventListener('submit', async (e) => {
     const resultat = await reponse.json();
     if (!reponse.ok) throw new Error(resultat.erreur || 'Erreur lors de l\'envoi.');
     afficherMessage(zone, resultat.message, 'succes');
+
+    // Transmet aussi le message directement sur WhatsApp (via l'API wa.me),
+    // pré-rempli avec les informations saisies dans le formulaire.
+    const texteWhatsApp = [
+      'Nouveau message depuis le site APRJ',
+      'Nom : ' + (donnees.nom || ''),
+      'Email : ' + (donnees.email || ''),
+      donnees.telephone ? 'Téléphone : ' + donnees.telephone : null,
+      donnees.sujet ? 'Sujet : ' + donnees.sujet : null,
+      '',
+      donnees.message || ''
+    ].filter(Boolean).join('\n');
+    window.open('https://wa.me/237652401831?text=' + encodeURIComponent(texteWhatsApp), '_blank');
+
     e.target.reset();
   } catch (err) {
     afficherMessage(zone, err.message, 'erreur');

@@ -159,10 +159,15 @@ router.put('/mises-en-relation/:id/selectionner', verifierToken, autoriserRoles(
   if (!entretien_date) {
     return res.status(400).json({ erreur: 'Merci de choisir une date et une heure d\'entretien.' });
   }
-  const dateEntretien = new Date(entretien_date);
-  if (Number.isNaN(dateEntretien.getTime())) {
+  // Format attendu du front : "YYYY-MM-DDTHH:MM" (ex: 2026-07-10T14:00).
+  // On le convertit en "YYYY-MM-DD HH:MM:00" pour MySQL SANS passer par un objet
+  // JS Date, pour éviter toute conversion de fuseau horaire imprévisible :
+  // l'heure tapée par l'employeur reste EXACTEMENT celle stockée et affichée.
+  const correspondance = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/.exec(entretien_date);
+  if (!correspondance) {
     return res.status(400).json({ erreur: 'Date d\'entretien invalide.' });
   }
+  const entretienDateSql = `${correspondance[1]} ${correspondance[2]}:00`;
 
   try {
     const [empRows] = await pool.query('SELECT id FROM employeurs WHERE user_id = ?', [req.utilisateur.id]);
@@ -181,7 +186,7 @@ router.put('/mises-en-relation/:id/selectionner', verifierToken, autoriserRoles(
        SET statut = 'selectionne', selectionne_le = NOW(),
            entretien_date = ?, entretien_lieu = ?, entretien_notes = ?
        WHERE id = ?`,
-      [dateEntretien, entretien_lieu || null, entretien_notes || null, req.params.id]
+      [entretienDateSql, entretien_lieu || null, entretien_notes || null, req.params.id]
     );
     res.json({ message: 'Profil sélectionné avec le créneau d\'entretien. L\'APRJ va notifier le candidat.' });
   } catch (e) {

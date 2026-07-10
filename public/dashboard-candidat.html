@@ -53,7 +53,11 @@
     <h2 style="margin:0;">Mon espace candidat</h2>
   </div>
 
-  <div class="onglets">
+  <button class="onglets-toggle" id="ongletsToggle" type="button" aria-expanded="false">
+    <span id="ongletsToggleLabel">Mon profil</span>
+    <span class="onglets-toggle-icone">▾</span>
+  </button>
+  <div class="onglets" id="onglets">
     <div class="onglet actif" data-onglet="profil">Mon profil</div>
     <div class="onglet" data-onglet="opportunites">Mes opportunités</div>
   </div>
@@ -118,10 +122,22 @@
 <script>
 exigerRole('candidat');
 
+const boutonOngletsToggle = document.getElementById('ongletsToggle');
+const conteneurOnglets = document.getElementById('onglets');
+const libelleOngletsToggle = document.getElementById('ongletsToggleLabel');
+
+boutonOngletsToggle.addEventListener('click', () => {
+  const ouvert = conteneurOnglets.classList.toggle('onglets-ouvert');
+  boutonOngletsToggle.setAttribute('aria-expanded', ouvert ? 'true' : 'false');
+});
+
 document.querySelectorAll('.onglet').forEach((o) => {
   o.addEventListener('click', () => {
     document.querySelectorAll('.onglet').forEach((x) => x.classList.remove('actif'));
     o.classList.add('actif');
+    libelleOngletsToggle.textContent = o.textContent;
+    conteneurOnglets.classList.remove('onglets-ouvert');
+    boutonOngletsToggle.setAttribute('aria-expanded', 'false');
     const cible = o.dataset.onglet;
     document.getElementById('vueProfil').style.display = cible === 'profil' ? 'block' : 'none';
     document.getElementById('vueOpportunites').style.display = cible === 'opportunites' ? 'block' : 'none';

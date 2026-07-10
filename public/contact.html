@@ -111,9 +111,25 @@ document.getElementById('formContact').addEventListener('submit', async (e) => {
   e.preventDefault();
   const zone = document.getElementById('zoneMessage');
   const bouton = document.getElementById('btnEnvoyer');
+  const donnees = Object.fromEntries(new FormData(e.target).entries());
+
+  // IMPORTANT : on ouvre WhatsApp tout de suite, de façon SYNCHRONE, avant le
+  // moindre `await`. Safari (iOS) bloque silencieusement les popups ouvertes
+  // après un `await` car ce n'est plus considéré comme une action directe de
+  // l'utilisateur — d'où le fait que rien ne se passait auparavant.
+  const texteWhatsApp = [
+    'Nouveau message depuis le site APRJ',
+    'Nom : ' + (donnees.nom || ''),
+    'Email : ' + (donnees.email || ''),
+    donnees.telephone ? 'Téléphone : ' + donnees.telephone : null,
+    donnees.sujet ? 'Sujet : ' + donnees.sujet : null,
+    '',
+    donnees.message || ''
+  ].filter(Boolean).join('\n');
+  window.open('https://wa.me/237652401831?text=' + encodeURIComponent(texteWhatsApp), '_blank');
+
   bouton.disabled = true;
   bouton.textContent = 'Envoi en cours...';
-  const donnees = Object.fromEntries(new FormData(e.target).entries());
   try {
     const reponse = await fetch('/api/contact', {
       method: 'POST',
@@ -123,20 +139,6 @@ document.getElementById('formContact').addEventListener('submit', async (e) => {
     const resultat = await reponse.json();
     if (!reponse.ok) throw new Error(resultat.erreur || 'Erreur lors de l\'envoi.');
     afficherMessage(zone, resultat.message, 'succes');
-
-    // Transmet aussi le message directement sur WhatsApp (via l'API wa.me),
-    // pré-rempli avec les informations saisies dans le formulaire.
-    const texteWhatsApp = [
-      'Nouveau message depuis le site APRJ',
-      'Nom : ' + (donnees.nom || ''),
-      'Email : ' + (donnees.email || ''),
-      donnees.telephone ? 'Téléphone : ' + donnees.telephone : null,
-      donnees.sujet ? 'Sujet : ' + donnees.sujet : null,
-      '',
-      donnees.message || ''
-    ].filter(Boolean).join('\n');
-    window.open('https://wa.me/237652401831?text=' + encodeURIComponent(texteWhatsApp), '_blank');
-
     e.target.reset();
   } catch (err) {
     afficherMessage(zone, err.message, 'erreur');

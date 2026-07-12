@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/style.css?v=2">
 </head>
 <body>
 <div id="aprjIntro" class="aprj-intro">
@@ -95,32 +95,6 @@
   </div>
   <div id="vueSelections" style="display:none;">
     <div id="listeSelections"></div>
-
-    <!-- Modal de création du rendez-vous de paiement + dépôt de dossier -->
-    <div id="modalRdvPaiement" style="display:none; position:fixed; inset:0; background:rgba(11,20,38,0.55); z-index:999; padding:20px; overflow-y:auto; -webkit-overflow-scrolling:touch;">
-      <div class="carte-formulaire compact" style="max-width:420px; width:100%; margin:20px auto;">
-        <h3 style="margin-bottom:6px;">Rendez-vous de paiement et dépôt de dossier</h3>
-        <p style="font-size:0.85rem; color:var(--ardoise-douce); margin-bottom:18px;">
-          Ce créneau (+ les frais et la liste des documents) sera envoyé par email au candidat.
-        </p>
-        <div class="champ">
-          <label for="rdvPaiementDate">Date *</label>
-          <input type="date" id="rdvPaiementDate" required>
-        </div>
-        <div class="champ">
-          <label for="rdvPaiementHeure">Heure *</label>
-          <input type="time" id="rdvPaiementHeure" required>
-        </div>
-        <div class="champ">
-          <label for="rdvPaiementLieuChamp">Lieu (adresse, agence...)</label>
-          <input type="text" id="rdvPaiementLieuChamp" placeholder="Ex : Siège APRJ, Akwa, Douala">
-        </div>
-        <div style="display:flex; gap:10px; margin-top:10px;">
-          <button type="button" class="btn btn-contour" style="flex:1;" onclick="fermerModalRdvPaiement()">Annuler</button>
-          <button type="button" class="btn btn-or" style="flex:1;" id="btnConfirmerRdvPaiement" onclick="confirmerEnvoiAvecRdv()">Confirmer et envoyer le mail</button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <div id="vueServices" style="display:none;">
@@ -1018,5 +992,31 @@ async function confirmerEnvoiAvecRdv() {
 chargerStats();
 chargerEnAttente();
 </script>
+
+<!-- Modal de création du rendez-vous de paiement + dépôt de dossier (hors des onglets, popup global) -->
+<div id="modalRdvPaiement" style="display:none; position:fixed; inset:0; background:rgba(11,20,38,0.55); z-index:9999; padding:20px; overflow-y:auto; -webkit-overflow-scrolling:touch;">
+  <div class="carte-formulaire compact" style="max-width:420px; width:100%; margin:20px auto;">
+    <h3 style="margin-bottom:6px;">Rendez-vous de paiement et dépôt de dossier</h3>
+    <p style="font-size:0.85rem; color:var(--ardoise-douce); margin-bottom:18px;">
+      Ce créneau (+ les frais et la liste des documents) sera envoyé par email au candidat.
+    </p>
+    <div class="champ">
+      <label for="rdvPaiementDate">Date *</label>
+      <input type="date" id="rdvPaiementDate" required>
+    </div>
+    <div class="champ">
+      <label for="rdvPaiementHeure">Heure *</label>
+      <input type="time" id="rdvPaiementHeure" required>
+    </div>
+    <div class="champ">
+      <label for="rdvPaiementLieuChamp">Lieu (adresse, agence...)</label>
+      <input type="text" id="rdvPaiementLieuChamp" placeholder="Ex : Siège APRJ, Akwa, Douala">
+    </div>
+    <div style="display:flex; gap:10px; margin-top:10px;">
+      <button type="button" class="btn btn-contour" style="flex:1;" onclick="fermerModalRdvPaiement()">Annuler</button>
+      <button type="button" class="btn btn-or" style="flex:1;" id="btnConfirmerRdvPaiement" onclick="confirmerEnvoiAvecRdv()">Confirmer et envoyer le mail</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

@@ -3,7 +3,7 @@ const pool = require('../db');
 const { verifierToken, autoriserRoles } = require('../middleware/auth');
 const uploadImage = require('../middleware/upload-image');
 const { envoyerNotificationSelection, formaterCreneau } = require('../services/whatsapp');
-const { envoyerEmailSelection } = require('../services/email');
+const { envoyerEmailSelection, diplomesRequis, FRAIS_DOSSIER_FCFA, FRAIS_FORMATION_ENTRETIEN_FCFA } = require('../services/email');
 const { enregistrerFichier } = require('../services/fichiers');
 
 const router = express.Router();
@@ -398,12 +398,34 @@ router.post('/demandes/:demandeId/proposer/:candidatId', async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 
-// Liste des profils sélectionnés par un employeur, en attente de notification au candidat
+// Liste des profils proposés par l'admin à un employeur, en attente de sa décision
+// (statut 'propose' = pas encore sélectionné par l'employeur). Permet à l'admin de
+// retirer une proposition qui ne l'intéresse plus (ex: proposée par erreur, doublon...).
+router.get('/propositions', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT mer.id, mer.created_at,
+              d.id AS demande_id, d.poste, e.nom_societe,
+              c.id AS candidat_id, c.nom_complet, c.ville, c.niveau_etude, c.domaine, c.photo_path
+       FROM mises_en_relation mer
+       JOIN demandes d ON d.id = mer.demande_id
+       JOIN employeurs e ON e.id = d.employeur_id
+       JOIN candidats c ON c.id = mer.candidat_id
+       WHERE mer.statut = 'propose'
+       ORDER BY mer.created_at DESC`
+    );
+    res.json({ propositions: rows });
+  } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
+});
+
+// Liste des profils sélectionnés par un employeur (+ rendez-vous confirmés, dossiers
+// incomplets ou rendez-vous annulés) — tout ce qui n'est plus au stade "proposé".
 router.get('/selections', async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT mer.id, mer.statut, mer.score_correspondance, mer.selectionne_le, mer.notifie_le,
               mer.entretien_date, mer.entretien_lieu, mer.entretien_notes,
+              mer.rdv_paiement_date, mer.rdv_paiement_lieu,
               d.id AS demande_id, d.poste, e.nom_societe,
               c.id AS candidat_id, c.nom_complet, c.ville, c.niveau_etude, c.domaine, c.photo_path,
               u.telephone AS telephone_candidat
@@ -412,28 +434,42 @@ router.get('/selections', async (req, res) => {
        JOIN employeurs e ON e.id = d.employeur_id
        JOIN candidats c ON c.id = mer.candidat_id
        JOIN users u ON u.id = c.user_id
-       WHERE mer.statut IN ('selectionne', 'notifie')
+       WHERE mer.statut IN ('selectionne', 'notifie', 'rejete', 'annule')
        ORDER BY mer.selectionne_le DESC`
     );
     res.json({ selections: rows });
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 
-// Supprime une mise en relation (sélection) — utile pour nettoyer les tests
-// ou annuler une sélection faite par erreur avant notification.
+// Supprime une mise en relation (proposition, sélection, rendez-vous annulé ou dossier
+// rejeté) — permet à l'admin de nettoyer/trier facilement les listes.
 router.delete('/mises-en-relation/:id', async (req, res) => {
   try {
     const [resultat] = await pool.query('DELETE FROM mises_en_relation WHERE id = ?', [req.params.id]);
-    if (!resultat.affectedRows) return res.status(404).json({ erreur: 'Sélection introuvable.' });
-    res.json({ message: 'Sélection supprimée.' });
+    if (!resultat.affectedRows) return res.status(404).json({ erreur: 'Profil introuvable.' });
+    res.json({ message: 'Profil retiré de la liste.' });
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 
-// Notifie le candidat par WhatsApp qu'il a été sélectionné par l'entreprise
+// Confirme le rendez-vous de paiement et dépôt de dossier : l'ADMIN choisit d'abord
+// une date/heure (et un lieu) pour ce rendez-vous, puis le mail complet (créneau
+// d'entretien + rendez-vous de paiement/dépôt + frais + documents à fournir) part
+// au candidat. Le WhatsApp (créneau d'entretien uniquement, template Meta) reste
+// une notification complémentaire, pas obligatoire.
 router.post('/mises-en-relation/:id/notifier', async (req, res) => {
   try {
+    const { rdv_paiement_date, rdv_paiement_lieu } = req.body;
+    if (!rdv_paiement_date) {
+      return res.status(400).json({ erreur: 'Merci de choisir une date ET une heure pour le rendez-vous de paiement et dépôt de dossier.' });
+    }
+    const correspondance = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/.exec(rdv_paiement_date);
+    if (!correspondance) {
+      return res.status(400).json({ erreur: 'Format de date invalide pour le rendez-vous de paiement.' });
+    }
+    const rdvPaiementSql = `${correspondance[1]} ${correspondance[2]}:00`;
+
     const [rows] = await pool.query(
-      `SELECT mer.*, d.poste, e.nom_societe, c.nom_complet, c.user_id AS candidat_user_id,
+      `SELECT mer.*, d.poste, e.nom_societe, c.nom_complet, c.niveau_etude, c.user_id AS candidat_user_id,
               u.telephone, u.email
        FROM mises_en_relation mer
        JOIN demandes d ON d.id = mer.demande_id
@@ -446,6 +482,11 @@ router.post('/mises-en-relation/:id/notifier', async (req, res) => {
     if (!rows.length) return res.status(404).json({ erreur: 'Sélection introuvable.' });
     const sel = rows[0];
 
+    await pool.query(
+      `UPDATE mises_en_relation SET rdv_paiement_date = ?, rdv_paiement_lieu = ? WHERE id = ?`,
+      [rdvPaiementSql, rdv_paiement_lieu || null, req.params.id]
+    );
+
     const resultatWhatsapp = await envoyerNotificationSelection({
       telephoneCandidat: sel.telephone,
       nomCandidat: sel.nom_complet,
@@ -456,28 +497,37 @@ router.post('/mises-en-relation/:id/notifier', async (req, res) => {
       entretienNotes: sel.entretien_notes
     });
 
-    // Secours automatique par email si WhatsApp n'a pas pu être envoyé
-    // (config manquante/payante non activée, téléphone invalide, erreur API...)
-    let resultatEmail = null;
-    if (!resultatWhatsapp.envoye) {
-      resultatEmail = await envoyerEmailSelection({
-        emailCandidat: sel.email,
-        nomCandidat: sel.nom_complet,
-        nomSociete: sel.nom_societe,
-        poste: sel.poste,
-        creneauTexte: formaterCreneau(sel.entretien_date),
-        entretienLieu: sel.entretien_lieu,
-        entretienNotes: sel.entretien_notes
-      });
-    }
+    // Le mail est TOUJOURS envoyé (pas seulement en secours du WhatsApp) car
+    // c'est lui qui porte le détail complet : rendez-vous de paiement et dépôt
+    // de dossier (créneau choisi par l'admin ci-dessus), frais de dossier, frais
+    // de formation à l'entretien et liste des documents à fournir (le template
+    // WhatsApp Meta, lui, reste limité à un texte court pré-approuvé).
+    const rdvPaiementTexte = formaterCreneau(rdvPaiementSql);
+    const resultatEmail = await envoyerEmailSelection({
+      emailCandidat: sel.email,
+      nomCandidat: sel.nom_complet,
+      nomSociete: sel.nom_societe,
+      poste: sel.poste,
+      creneauTexte: formaterCreneau(sel.entretien_date),
+      entretienLieu: sel.entretien_lieu,
+      entretienNotes: sel.entretien_notes,
+      niveauEtude: sel.niveau_etude,
+      rdvPaiementTexte,
+      rdvPaiementLieu: rdv_paiement_lieu
+    });
 
     await pool.query(`UPDATE mises_en_relation SET statut = 'notifie', notifie_le = NOW() WHERE id = ?`, [req.params.id]);
 
     const creneauTexte = formaterCreneau(sel.entretien_date);
+    const documentsAFournir = diplomesRequis(sel.niveau_etude).map((d) => `Diplôme : ${d}`);
     const messageNotification = `L'entreprise ${sel.nom_societe} a sélectionné ton profil pour le poste "${sel.poste}".\n`
       + `Entretien prévu : ${creneauTexte}\n`
-      + `Lieu : ${sel.entretien_lieu || 'à confirmer'}\n`
+      + `Lieu de l'entretien : ${sel.entretien_lieu || 'à confirmer'}\n`
       + (sel.entretien_notes ? `Informations complémentaires : ${sel.entretien_notes}\n` : '')
+      + `Rendez-vous de paiement et dépôt de dossier : ${rdvPaiementTexte}${rdv_paiement_lieu ? ` — ${rdv_paiement_lieu}` : ''}\n`
+      + `Frais de dossier : ${FRAIS_DOSSIER_FCFA.toLocaleString('fr-FR')} FCFA — Frais de formation à l'entretien : ${FRAIS_FORMATION_ENTRETIEN_FCFA.toLocaleString('fr-FR')} FCFA\n`
+      + `Diplômes à fournir (copies légalisées) : ${documentsAFournir.map((d) => d.replace('Diplôme : ', '')).join(', ')}\n`
+      + `⚠️ Consulte bien ton EMAIL : la liste complète des documents à fournir t'y a été envoyée.\n`
       + `Tu vas être recontacté(e) prochainement.`;
 
     await pool.query(
@@ -492,38 +542,106 @@ router.post('/mises-en-relation/:id/notifier', async (req, res) => {
       ]
     );
 
-    if (resultatWhatsapp.envoye) {
-      return res.json({ message: 'Candidat notifié par WhatsApp avec succès (avec le créneau d\'entretien).', whatsapp: resultatWhatsapp });
-    }
-
     const raisonsWhatsapp = {
       configuration_incomplete: 'la configuration WhatsApp (.env) est incomplète sur le serveur.',
       telephone_manquant: 'le numéro de téléphone du candidat est manquant ou invalide.',
       erreur_api: 'l\'API WhatsApp a refusé l\'envoi (voir détails techniques).'
     };
-    const raisonWhatsapp = raisonsWhatsapp[resultatWhatsapp.raison] || resultatWhatsapp.raison;
+    const raisonsEmail = {
+      configuration_incomplete: 'la configuration email (Brevo/SMTP, .env) est incomplète sur le serveur.',
+      email_manquant: 'le candidat n\'a pas d\'adresse email valide.',
+      erreur_brevo: 'l\'envoi via Brevo a échoué (voir détails techniques).',
+      erreur_smtp: 'l\'envoi de l\'email a échoué (voir détails techniques).'
+    };
 
-    if (resultatEmail && resultatEmail.envoye) {
-      return res.json({
-        message: `Candidat marqué comme notifié. L'envoi WhatsApp a échoué (${raisonWhatsapp}), `
-          + 'mais un EMAIL de secours avec le créneau d\'entretien a bien été envoyé au candidat.',
-        whatsapp: resultatWhatsapp,
-        email: resultatEmail
-      });
+    const emailOk = resultatEmail && resultatEmail.envoye;
+    const whatsappOk = resultatWhatsapp.envoye;
+
+    let message;
+    if (emailOk && whatsappOk) {
+      message = 'Rendez-vous confirmé : le candidat a été notifié par WhatsApp ET a reçu le mail complet '
+        + '(entretien, rendez-vous de paiement/dépôt de dossier, frais et liste des documents à fournir).';
+    } else if (emailOk) {
+      message = 'Rendez-vous confirmé : le mail complet (entretien, rendez-vous de paiement/dépôt, frais et documents à fournir) a bien été envoyé au candidat. '
+        + `L'envoi WhatsApp, lui, a échoué (${raisonsWhatsapp[resultatWhatsapp.raison] || resultatWhatsapp.raison}).`;
+    } else {
+      message = 'Candidat marqué comme notifié, mais ni WhatsApp ni l\'email n\'ont pu être envoyés '
+        + `(WhatsApp : ${raisonsWhatsapp[resultatWhatsapp.raison] || resultatWhatsapp.raison} ; `
+        + `Email : ${raisonsEmail[resultatEmail?.raison] || resultatEmail?.raison}). `
+        + 'La notification (avec le créneau, les frais et les documents) reste bien visible dans son espace candidat.';
     }
 
-    const raisonsEmail = {
-      configuration_incomplete: 'la configuration email (SMTP, .env) est aussi incomplète sur le serveur.',
-      email_manquant: 'le candidat n\'a pas d\'adresse email valide.',
-      erreur_smtp: 'l\'envoi de l\'email de secours a échoué (voir détails techniques).'
-    };
-    return res.json({
-      message: 'Candidat marqué comme notifié, mais ni WhatsApp ni l\'email de secours n\'ont pu être envoyés '
-        + `(WhatsApp : ${raisonWhatsapp} ; Email : ${raisonsEmail[resultatEmail?.raison] || resultatEmail?.raison}). `
-        + 'La notification (avec le créneau d\'entretien) reste bien visible dans son espace candidat.',
-      whatsapp: resultatWhatsapp,
-      email: resultatEmail
-    });
+    return res.json({ message, whatsapp: resultatWhatsapp, email: resultatEmail });
+  } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
+});
+
+// Annule un rendez-vous de paiement/dépôt de dossier déjà confirmé (ex: empêchement,
+// erreur de créneau...). Le candidat en est informé dans son espace personnel.
+router.post('/mises-en-relation/:id/annuler', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT mer.*, d.poste, e.nom_societe, c.user_id AS candidat_user_id
+       FROM mises_en_relation mer
+       JOIN demandes d ON d.id = mer.demande_id
+       JOIN employeurs e ON e.id = d.employeur_id
+       JOIN candidats c ON c.id = mer.candidat_id
+       WHERE mer.id = ?`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ erreur: 'Sélection introuvable.' });
+    const sel = rows[0];
+
+    await pool.query(`UPDATE mises_en_relation SET statut = 'annule' WHERE id = ?`, [req.params.id]);
+
+    await pool.query(
+      `INSERT INTO notifications (user_id, type, titre, message, demande_id, candidat_id)
+       VALUES (?, 'info', ?, ?, ?, ?)`,
+      [
+        sel.candidat_user_id,
+        'Rendez-vous annulé',
+        `Le rendez-vous de paiement et dépôt de dossier pour le poste "${sel.poste}" chez ${sel.nom_societe} a été annulé. `
+          + 'L\'équipe APRJ te recontactera pour te proposer un nouveau créneau si besoin.',
+        sel.demande_id,
+        sel.candidat_id
+      ]
+    );
+
+    res.json({ message: 'Rendez-vous annulé. Le candidat a été informé dans son espace personnel.' });
+  } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
+});
+
+// Marque le dossier du candidat comme incomplet (documents manquants au dépôt).
+// Le candidat en est informé dans son espace personnel.
+router.post('/mises-en-relation/:id/dossier-incomplet', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT mer.*, d.poste, e.nom_societe, c.user_id AS candidat_user_id
+       FROM mises_en_relation mer
+       JOIN demandes d ON d.id = mer.demande_id
+       JOIN employeurs e ON e.id = d.employeur_id
+       JOIN candidats c ON c.id = mer.candidat_id
+       WHERE mer.id = ?`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ erreur: 'Sélection introuvable.' });
+    const sel = rows[0];
+
+    await pool.query(`UPDATE mises_en_relation SET statut = 'rejete' WHERE id = ?`, [req.params.id]);
+
+    await pool.query(
+      `INSERT INTO notifications (user_id, type, titre, message, demande_id, candidat_id)
+       VALUES (?, 'info', ?, ?, ?, ?)`,
+      [
+        sel.candidat_user_id,
+        'Dossier incomplet',
+        `Ton dossier pour le poste "${sel.poste}" chez ${sel.nom_societe} a été reçu incomplet. `
+          + 'Merci de contacter l\'équipe APRJ pour régulariser les documents manquants.',
+        sel.demande_id,
+        sel.candidat_id
+      ]
+    );
+
+    res.json({ message: 'Dossier marqué comme incomplet. Le candidat a été informé dans son espace personnel.' });
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 

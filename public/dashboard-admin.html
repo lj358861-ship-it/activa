@@ -868,19 +868,15 @@ async function chargerSelections() {
                 <button class="btn btn-contour" style="margin-top:6px;" onclick="annulerRdv(${s.id})">Annuler le rendez-vous</button>
               `;
             } else if (s.statut === 'notifie') {
-              actions = `
-                <button class="btn btn-contour" onclick="marquerDossierIncomplet(${s.id})">Dossier incomplet</button>
-                <button class="btn btn-contour" style="margin-top:6px;" onclick="annulerRdv(${s.id})">Annuler le rendez-vous</button>
-                <button class="btn btn-danger" style="margin-top:6px;" onclick="supprimerSelection(${s.id})">Supprimer</button>
-              `;
+              actions = ''; // Confirmé : dossier clos, rien d'autre à faire ici.
             } else if (s.statut === 'rejete') {
               actions = `
                 <button class="btn btn-or" onclick="ouvrirModalRdvPaiement(${s.id})">Nouveau rendez-vous de paiement</button>
                 <button class="btn btn-danger" style="margin-top:6px;" onclick="supprimerSelection(${s.id})">Supprimer</button>
               `;
             } else {
-              // annule : dossier traité, on peut nettoyer la liste
-              actions = `<button class="btn btn-danger" onclick="supprimerSelection(${s.id})">Supprimer</button>`;
+              // annule : Annulé, rien d'autre à faire ici.
+              actions = '';
             }
             return `
             <tr>

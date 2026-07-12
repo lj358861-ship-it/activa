@@ -429,6 +429,7 @@ table.liste tr:last-child td { border-bottom: none; }
 .etiquette { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
 .etiquette-attente { background: #FEF3DE; color: #92620B; }
 .etiquette-valide { background: #E6F3EC; color: var(--vert); }
+.etiquette-rouge { background: #FBE7E7; color: var(--rouge); }
 .etiquette-score { background: rgba(232,163,61,0.15); color: #92620B; }
 
 .onglets { display: flex; gap: 6px; border-bottom: 2px solid var(--bordure); margin-bottom: 24px; }

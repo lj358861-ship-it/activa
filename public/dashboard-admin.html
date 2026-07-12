@@ -63,6 +63,7 @@
     <div class="onglet" data-onglet="candidats">Candidats</div>
     <div class="onglet" data-onglet="demandes">Demandes</div>
     <div class="onglet" data-onglet="matching">Mise en relation</div>
+    <div class="onglet" data-onglet="propositions">Profils proposés</div>
     <div class="onglet" data-onglet="selections">Sélections</div>
     <div class="onglet" data-onglet="services">Services</div>
     <div class="onglet" data-onglet="evenements">Événements</div>
@@ -86,8 +87,40 @@
     </div>
     <div id="resultatsMatching" style="margin-top:22px;"></div>
   </div>
+  <div id="vuePropositions" style="display:none;">
+    <p style="font-size:0.85rem; color:var(--ardoise-douce); margin-bottom:14px;">
+      Profils proposés par l'APRJ à un employeur, en attente de sa décision. Tu peux retirer une proposition qui ne t'intéresse plus (erreur, doublon...).
+    </p>
+    <div id="listePropositions"></div>
+  </div>
   <div id="vueSelections" style="display:none;">
     <div id="listeSelections"></div>
+
+    <!-- Modal de création du rendez-vous de paiement + dépôt de dossier -->
+    <div id="modalRdvPaiement" style="display:none; position:fixed; inset:0; background:rgba(11,20,38,0.55); z-index:999; align-items:center; justify-content:center; padding:20px;">
+      <div class="carte-formulaire compact" style="max-width:420px; width:100%;">
+        <h3 style="margin-bottom:6px;">Rendez-vous de paiement et dépôt de dossier</h3>
+        <p style="font-size:0.85rem; color:var(--ardoise-douce); margin-bottom:18px;">
+          Ce créneau (+ les frais et la liste des documents) sera envoyé par email au candidat.
+        </p>
+        <div class="champ">
+          <label for="rdvPaiementDate">Date *</label>
+          <input type="date" id="rdvPaiementDate" required>
+        </div>
+        <div class="champ">
+          <label for="rdvPaiementHeure">Heure *</label>
+          <input type="time" id="rdvPaiementHeure" required>
+        </div>
+        <div class="champ">
+          <label for="rdvPaiementLieuChamp">Lieu (adresse, agence...)</label>
+          <input type="text" id="rdvPaiementLieuChamp" placeholder="Ex : Siège APRJ, Akwa, Douala">
+        </div>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+          <button type="button" class="btn btn-contour" style="flex:1;" onclick="fermerModalRdvPaiement()">Annuler</button>
+          <button type="button" class="btn btn-or" style="flex:1;" id="btnConfirmerRdvPaiement" onclick="confirmerEnvoiAvecRdv()">Confirmer et envoyer le mail</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="vueServices" style="display:none;">
@@ -218,7 +251,7 @@ document.querySelectorAll('.onglet').forEach((o) => {
     libelleOngletsToggle.textContent = o.textContent;
     conteneurOnglets.classList.remove('onglets-ouvert');
     boutonOngletsToggle.setAttribute('aria-expanded', 'false');
-    ['vueAttente', 'vueEmployeurs', 'vueCandidats', 'vueDemandes', 'vueMatching', 'vueSelections', 'vueServices', 'vueEvenements', 'vueCollaborateurs', 'vueMessages', 'vueHero']
+    ['vueAttente', 'vueEmployeurs', 'vueCandidats', 'vueDemandes', 'vueMatching', 'vuePropositions', 'vueSelections', 'vueServices', 'vueEvenements', 'vueCollaborateurs', 'vueMessages', 'vueHero']
       .forEach((id) => document.getElementById(id).style.display = 'none');
     const cible = o.dataset.onglet;
     if (cible === 'attente') { document.getElementById('vueAttente').style.display = 'block'; chargerEnAttente(); }
@@ -226,6 +259,7 @@ document.querySelectorAll('.onglet').forEach((o) => {
     if (cible === 'candidats') { document.getElementById('vueCandidats').style.display = 'block'; chargerCandidats(); }
     if (cible === 'demandes') { document.getElementById('vueDemandes').style.display = 'block'; chargerAdminDemandes(); }
     if (cible === 'matching') { document.getElementById('vueMatching').style.display = 'block'; chargerSelectDemandes(); }
+    if (cible === 'propositions') { document.getElementById('vuePropositions').style.display = 'block'; chargerPropositions(); }
     if (cible === 'selections') { document.getElementById('vueSelections').style.display = 'block'; chargerSelections(); }
     if (cible === 'services') { document.getElementById('vueServices').style.display = 'block'; chargerAdminServices(); }
     if (cible === 'evenements') { document.getElementById('vueEvenements').style.display = 'block'; chargerAdminEvenements(); }
@@ -783,10 +817,45 @@ async function proposerCandidat(demandeId, candidatId, score, bouton) {
   }
 }
 
-/* ===== SÉLECTIONS EMPLOYEURS -> NOTIFICATION WHATSAPP CANDIDAT ===== */
+/* ===== PROFILS PROPOSÉS (en attente de décision de l'employeur) ===== */
+async function chargerPropositions() {
+  const conteneur = document.getElementById('listePropositions');
+  conteneur.innerHTML = '<p>Chargement...</p>';
+  try {
+    const { propositions } = await appelApi('/admin/propositions');
+    if (!propositions.length) { conteneur.innerHTML = '<p>Aucun profil proposé en attente pour le moment.</p>'; return; }
+    conteneur.innerHTML = `
+      <table class="liste">
+        <thead><tr><th></th><th>Candidat</th><th>Poste</th><th>Entreprise</th><th>Niveau</th><th></th></tr></thead>
+        <tbody>
+          ${propositions.map((p) => `
+            <tr>
+              <td>${p.photo_path ? `<img class="miniature" src="/uploads/${p.photo_path}">` : ''}</td>
+              <td>${p.nom_complet}</td>
+              <td>${p.poste}</td>
+              <td>${p.nom_societe}</td>
+              <td>${p.niveau_etude}</td>
+              <td><button class="btn btn-danger" onclick="supprimerProposition(${p.id})">Supprimer</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+async function supprimerProposition(id) {
+  if (!confirm('Retirer cette proposition ? L\'employeur ne la verra plus dans son espace.')) return;
+  try {
+    await appelApi(`/admin/mises-en-relation/${id}`, { method: 'DELETE' });
+    chargerPropositions();
+  } catch (err) { alert(err.message); }
+}
+
+/* ===== SÉLECTIONS EMPLOYEURS -> RENDEZ-VOUS DE PAIEMENT/DÉPÔT + NOTIFICATION CANDIDAT ===== */
 // Formate "YYYY-MM-DD HH:MM:SS" (venant du serveur) sans passer par new Date(),
 // pour éviter toute conversion de fuseau horaire : l'heure affichée est
-// exactement celle enregistrée par l'employeur.
+// exactement celle enregistrée par l'employeur/l'admin.
 function formaterCreneauAffichage(entretienDate) {
   if (!entretienDate || entretienDate === 'null' || entretienDate === 'undefined') return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(entretienDate);
@@ -794,6 +863,13 @@ function formaterCreneauAffichage(entretienDate) {
   const [, annee, mois, jour, heure, minute] = m;
   return `${jour}/${mois}/${annee} à ${heure}h${minute}`;
 }
+
+const ETIQUETTES_STATUT_SELECTION = {
+  selectionne: { texte: 'En attente de rendez-vous', classe: 'etiquette-attente' },
+  notifie: { texte: 'Confirmé', classe: 'etiquette-valide' },
+  rejete: { texte: 'Dossier incomplet', classe: 'etiquette-rouge' },
+  annule: { texte: 'Annulé', classe: 'etiquette-rouge' }
+};
 
 async function chargerSelections() {
   const conteneur = document.getElementById('listeSelections');
@@ -803,9 +879,24 @@ async function chargerSelections() {
     if (!selections.length) { conteneur.innerHTML = '<p>Aucune sélection employeur pour le moment.</p>'; return; }
     conteneur.innerHTML = `
       <table class="liste">
-        <thead><tr><th></th><th>Candidat</th><th>Téléphone</th><th>Poste</th><th>Entreprise</th><th>Créneau d'entretien</th><th>Statut</th><th></th></tr></thead>
+        <thead><tr><th></th><th>Candidat</th><th>Téléphone</th><th>Poste</th><th>Entreprise</th><th>Entretien</th><th>Rdv paiement/dépôt</th><th>Statut</th><th></th></tr></thead>
         <tbody>
-          ${selections.map((s) => `
+          ${selections.map((s) => {
+            const etiquette = ETIQUETTES_STATUT_SELECTION[s.statut] || { texte: s.statut, classe: 'etiquette-attente' };
+            let actions = '';
+            if (s.statut === 'selectionne') {
+              actions = `<button class="btn btn-or" onclick="ouvrirModalRdvPaiement(${s.id})">Confirmer le rendez-vous</button>`;
+            } else if (s.statut === 'notifie') {
+              actions = `
+                <button class="btn btn-contour" onclick="marquerDossierIncomplet(${s.id})">Dossier incomplet</button>
+                <button class="btn btn-contour" style="margin-top:6px;" onclick="annulerRdv(${s.id})">Annuler le rendez-vous</button>
+                <button class="btn btn-danger" style="margin-top:6px;" onclick="supprimerSelection(${s.id})">Supprimer</button>
+              `;
+            } else {
+              // rejete (dossier incomplet) ou annule : dossier traité, on peut nettoyer la liste
+              actions = `<button class="btn btn-danger" onclick="supprimerSelection(${s.id})">Supprimer</button>`;
+            }
+            return `
             <tr>
               <td>${s.photo_path ? `<img class="miniature" src="/uploads/${s.photo_path}">` : ''}</td>
               <td>${s.nom_complet}</td>
@@ -817,15 +908,15 @@ async function chargerSelections() {
                 ${s.entretien_lieu ? `<br><span style="font-size:0.8rem; color:var(--gris);">${s.entretien_lieu}</span>` : ''}
                 ${s.entretien_notes ? `<br><span style="font-size:0.78rem; color:var(--gris); font-style:italic;">${s.entretien_notes}</span>` : ''}
               </td>
-              <td><span class="etiquette ${s.statut === 'notifie' ? 'etiquette-valide' : 'etiquette-attente'}">${s.statut === 'notifie' ? 'Candidat notifié' : 'En attente'}</span></td>
               <td>
-                ${s.statut === 'notifie'
-                  ? '<span style="color:var(--gris); font-size:0.85rem;">✅ Déjà notifié</span>'
-                  : `<button class="btn btn-or" onclick="notifierCandidat(${s.id}, this)">Notifier candidat</button>`}
-                <button class="btn btn-danger" style="margin-top:6px;" onclick="supprimerSelection(${s.id})">Supprimer</button>
+                ${formaterCreneauAffichage(s.rdv_paiement_date) || '<span style="color:var(--gris);">Pas encore fixé</span>'}
+                ${s.rdv_paiement_lieu ? `<br><span style="font-size:0.8rem; color:var(--gris);">${s.rdv_paiement_lieu}</span>` : ''}
               </td>
+              <td><span class="etiquette ${etiquette.classe}">${etiquette.texte}</span></td>
+              <td>${actions}</td>
             </tr>
-          `).join('')}
+          `;
+          }).join('')}
         </tbody>
       </table>
     `;
@@ -833,24 +924,72 @@ async function chargerSelections() {
 }
 
 async function supprimerSelection(id) {
-  if (!confirm('Supprimer cette sélection ? Le candidat ne sera pas notifié.')) return;
+  if (!confirm('Supprimer définitivement cette ligne de la liste ?')) return;
   try {
     await appelApi(`/admin/mises-en-relation/${id}`, { method: 'DELETE' });
     chargerSelections();
   } catch (err) { alert(err.message); }
 }
 
-async function notifierCandidat(id, bouton) {
+async function annulerRdv(id) {
+  if (!confirm('Annuler ce rendez-vous de paiement/dépôt de dossier ? Le candidat sera informé dans son espace personnel.')) return;
+  try {
+    const reponse = await appelApi(`/admin/mises-en-relation/${id}/annuler`, { method: 'POST' });
+    alert(reponse.message);
+    chargerSelections();
+  } catch (err) { alert(err.message); }
+}
+
+async function marquerDossierIncomplet(id) {
+  if (!confirm('Marquer ce dossier comme incomplet ? Le candidat sera informé dans son espace personnel.')) return;
+  try {
+    const reponse = await appelApi(`/admin/mises-en-relation/${id}/dossier-incomplet`, { method: 'POST' });
+    alert(reponse.message);
+    chargerSelections();
+  } catch (err) { alert(err.message); }
+}
+
+/* ===== MODAL : création du rendez-vous de paiement + dépôt de dossier ===== */
+let idSelectionEnCoursRdv = null;
+
+function ouvrirModalRdvPaiement(id) {
+  idSelectionEnCoursRdv = id;
+  document.getElementById('rdvPaiementDate').value = '';
+  document.getElementById('rdvPaiementHeure').value = '';
+  document.getElementById('rdvPaiementLieuChamp').value = '';
+  document.getElementById('modalRdvPaiement').style.display = 'flex';
+}
+
+function fermerModalRdvPaiement() {
+  document.getElementById('modalRdvPaiement').style.display = 'none';
+  idSelectionEnCoursRdv = null;
+}
+
+async function confirmerEnvoiAvecRdv() {
+  const date = document.getElementById('rdvPaiementDate').value;
+  const heure = document.getElementById('rdvPaiementHeure').value;
+  const rdv_paiement_lieu = document.getElementById('rdvPaiementLieuChamp').value.trim();
+  if (!date || !heure) {
+    alert('Merci de choisir une date ET une heure pour le rendez-vous de paiement et dépôt de dossier.');
+    return;
+  }
+  const rdv_paiement_date = `${date}T${heure}`;
+  const bouton = document.getElementById('btnConfirmerRdvPaiement');
   bouton.disabled = true;
   bouton.textContent = 'Envoi...';
   try {
-    const reponse = await appelApi(`/admin/mises-en-relation/${id}/notifier`, { method: 'POST' });
+    const reponse = await appelApi(`/admin/mises-en-relation/${idSelectionEnCoursRdv}/notifier`, {
+      method: 'POST',
+      corpsJson: { rdv_paiement_date, rdv_paiement_lieu }
+    });
     alert(reponse.message);
+    fermerModalRdvPaiement();
     chargerSelections();
   } catch (err) {
     alert(err.message);
+  } finally {
     bouton.disabled = false;
-    bouton.textContent = 'Notifier candidat (WhatsApp)';
+    bouton.textContent = 'Confirmer et envoyer le mail';
   }
 }
 

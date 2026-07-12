@@ -53,6 +53,17 @@
     <h2 style="margin:0;">Mon espace candidat</h2>
   </div>
 
+  <div class="carte" style="background:#fff8e6; border:1px solid #e8c874; margin-bottom:18px;">
+    <p style="margin:0 0 8px; font-weight:700;">📧 Un conseil pour ne pas te tromper</p>
+    <p style="margin:0; font-size:0.9rem;">
+      Si une entreprise sélectionne ton profil, tu reçois un message WhatsApp <strong>ET un email</strong>.
+      <strong>Pense bien à consulter ta boîte mail (et le dossier spam/indésirables)</strong> :
+      c'est là que se trouvent le rendez-vous de paiement et dépôt de dossier, les frais à prévoir,
+      et la liste complète des documents à apporter selon ton diplôme. Aucun rendez-vous ne sera
+      confirmé sans que tu aies vu ces informations, alors vérifie régulièrement tes mails.
+    </p>
+  </div>
+
   <button class="onglets-toggle" id="ongletsToggle" type="button" aria-expanded="false">
     <span id="ongletsToggleLabel">Mon profil</span>
     <span class="onglets-toggle-icone">▾</span>
@@ -199,7 +210,7 @@ async function chargerOpportunites() {
   conteneur.innerHTML = '<p>Chargement...</p>';
   try {
     const { notifications } = await appelApi('/candidats/notifications');
-    const opportunites = notifications.filter((n) => n.type === 'opportunite_emploi');
+    const opportunites = notifications.filter((n) => n.type === 'opportunite_emploi' || n.type === 'info');
     if (!opportunites.length) {
       conteneur.innerHTML = '<p>Aucune opportunité pour le moment. Ton profil est enregistré, l\'APRJ te contactera dès qu\'une offre correspond.</p>';
       return;

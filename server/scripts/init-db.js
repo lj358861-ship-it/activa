@@ -50,6 +50,42 @@ async function initialiserBaseDeDonnees() {
     console.log('[init-db] Colonnes de statut ajoutées à la table mises_en_relation.');
   }
 
+  // Migration : ajoute les colonnes de créneau d'entretien (choisi par l'employeur)
+  // si elles n'existent pas encore (filet de sécurité pour les bases où elles auraient
+  // été ajoutées manuellement, ou pour une toute nouvelle base).
+  const [colonnesEntretien] = await connection.query(
+    `SELECT COUNT(*) AS n FROM information_schema.columns
+     WHERE table_schema = ? AND table_name = 'mises_en_relation' AND column_name = 'entretien_date'`,
+    [database]
+  );
+  if (colonnesEntretien[0].n === 0) {
+    await connection.query(
+      `ALTER TABLE mises_en_relation
+       ADD COLUMN entretien_date DATETIME NULL,
+       ADD COLUMN entretien_lieu VARCHAR(255) NULL,
+       ADD COLUMN entretien_notes TEXT NULL`
+    );
+    console.log('[init-db] Colonnes entretien_date/entretien_lieu/entretien_notes ajoutées à mises_en_relation.');
+  }
+
+  // Migration : ajoute le rendez-vous de paiement/dépôt de dossier (choisi par l'ADMIN,
+  // avant l'envoi du mail au candidat) + les statuts "rejete" (dossier incomplet) et
+  // "annule" (rendez-vous annulé) au suivi des mises en relation.
+  const [colonnesRdvPaiement] = await connection.query(
+    `SELECT COUNT(*) AS n FROM information_schema.columns
+     WHERE table_schema = ? AND table_name = 'mises_en_relation' AND column_name = 'rdv_paiement_date'`,
+    [database]
+  );
+  if (colonnesRdvPaiement[0].n === 0) {
+    await connection.query(
+      `ALTER TABLE mises_en_relation
+       ADD COLUMN rdv_paiement_date DATETIME NULL,
+       ADD COLUMN rdv_paiement_lieu VARCHAR(255) NULL,
+       MODIFY COLUMN statut ENUM('propose', 'selectionne', 'notifie', 'rejete', 'annule') DEFAULT 'propose'`
+    );
+    console.log('[init-db] Colonnes rdv_paiement_date/rdv_paiement_lieu ajoutées + statuts rejete/annule.');
+  }
+
   // Créer le compte admin par défaut s'il n'existe pas
   const [rows] = await connection.query('SELECT id FROM users WHERE role = "admin" LIMIT 1');
   if (rows.length === 0) {

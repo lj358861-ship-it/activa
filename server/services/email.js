@@ -3,12 +3,24 @@ const axios = require('axios');
 
 /*
   Service d'envoi d'email au candidat sélectionné par une entreprise.
-  Ce mail est TOUJOURS envoyé (indépendamment du succès/échec de la notification
-  WhatsApp) car c'est lui qui porte le détail complet : créneau d'entretien,
-  frais de dossier, frais de formation à l'entretien, et liste des documents
-  à fournir (diplômes en cascade selon le niveau d'étude du candidat).
 
-  DEUX MODES POSSIBLES POUR L'ENVOI :
+  DEUX MAILS DISTINCTS, ENVOYÉS À DEUX MOMENTS DIFFÉRENTS DU PARCOURS :
+
+  1) Mail "rendez-vous de paiement et dépôt de dossier" (envoyerEmailRdvPaiement)
+     — envoyé dès que l'ADMIN choisit un créneau de paiement/dépôt de dossier.
+     Contient : date/lieu du rendez-vous, frais à prévoir, liste des documents
+     à fournir. NE CONTIENT PAS le créneau d'entretien : celui-ci n'est révélé
+     qu'une fois le paiement/dépôt validé (voir ci-dessous). Ce mail peut être
+     renvoyé plusieurs fois avec un nouveau créneau si le dossier est jugé
+     incomplet lors du rendez-vous (l'admin reprogramme alors un nouveau
+     rendez-vous, ce qui renvoie ce même mail avec la nouvelle date).
+
+  2) Mail "entretien" (envoyerEmailEntretien) — envoyé UNIQUEMENT une fois que
+     l'ADMIN a validé que le paiement a été effectué et le dossier déposé
+     complet lors du rendez-vous ci-dessus. Contient : date/lieu de l'entretien
+     et les informations complémentaires éventuelles transmises par l'employeur.
+
+  DEUX MODES POSSIBLES POUR L'ENVOI (valables pour les deux mails ci-dessus) :
 
   1) BREVO_API_KEY (RECOMMANDÉ) — passe par l'API HTTP de Brevo (port 443,
      jamais bloqué par les hébergeurs cloud). Beaucoup plus fiable que le SMTP
@@ -74,20 +86,20 @@ function construireListeDocuments(niveauEtude) {
   return [...documentsGeneraux, ...documentsDiplomes];
 }
 
-function construireHtml({
-  nomCandidat, nomSociete, poste, creneauTexte, entretienLieu, entretienNotes, niveauEtude,
-  rdvPaiementTexte, rdvPaiementLieu
+// Mail n°1 : rendez-vous de paiement et dépôt de dossier (envoyé dès que
+// l'admin choisit le créneau — pas d'information sur l'entretien à ce stade).
+function construireHtmlRdvPaiement({
+  nomCandidat, nomSociete, poste, niveauEtude, rdvPaiementTexte, rdvPaiementLieu, estRelance
 }) {
   const documents = construireListeDocuments(niveauEtude);
   return `
     <p>Bonjour ${nomCandidat},</p>
     <p>L'entreprise <strong>${nomSociete}</strong> a sélectionné ton profil pour le poste
        <strong>${poste}</strong>.</p>
-    <p>
-      <strong>Entretien prévu :</strong> ${creneauTexte}<br>
-      <strong>Lieu :</strong> ${entretienLieu || 'à confirmer'}<br>
-      ${entretienNotes ? `<strong>Informations complémentaires :</strong> ${entretienNotes}<br>` : ''}
-    </p>
+    ${estRelance ? `
+    <p style="color:#92620B;"><strong>⚠️ Ton précédent dossier était incomplet.</strong> Voici un nouveau
+       rendez-vous pour le déposer complet, avec la liste des documents attendus.</p>
+    ` : ''}
     <div style="border:2px solid #d4a017; background:#fff8e6; padding:14px 16px; margin:16px 0; border-radius:6px;">
       <p style="margin:0 0 8px 0;"><strong>📌 Rendez-vous de paiement et dépôt de dossier</strong></p>
       <p style="margin:0;">
@@ -104,7 +116,28 @@ function construireHtml({
     <ul>
       ${documents.map((d) => `<li>${d}</li>`).join('\n      ')}
     </ul>
-    <p>Tu vas être recontacté(e) prochainement par l'équipe APRJ ou directement par l'entreprise.</p>
+    <p>Le créneau de ton entretien te sera communiqué par un second email, une fois ton paiement
+       et ton dossier validés lors de ce rendez-vous.</p>
+    <p>Bonne chance !<br>L'équipe APRJ</p>
+  `;
+}
+
+// Mail n°2 : entretien (envoyé uniquement une fois le paiement/dépôt validé par l'admin).
+function construireHtmlEntretien({
+  nomCandidat, nomSociete, poste, creneauTexte, entretienLieu, entretienNotes
+}) {
+  return `
+    <p>Bonjour ${nomCandidat},</p>
+    <p>Ton paiement et ton dossier ont bien été validés pour le poste <strong>${poste}</strong>
+       chez <strong>${nomSociete}</strong>. Voici les informations de ton entretien :</p>
+    <div style="border:2px solid #2e7d32; background:#e6f3ec; padding:14px 16px; margin:16px 0; border-radius:6px;">
+      <p style="margin:0;">
+        <strong>Date de l'entretien :</strong> ${creneauTexte || 'à confirmer'}<br>
+        <strong>Lieu :</strong> ${entretienLieu || 'à confirmer'}<br>
+        ${entretienNotes ? `<strong>Informations complémentaires :</strong> ${entretienNotes}<br>` : ''}
+      </p>
+    </div>
+    <p>Merci de te présenter à l'heure, muni(e) d'une pièce d'identité.</p>
     <p>Bonne chance !<br>L'équipe APRJ</p>
   `;
 }
@@ -159,26 +192,11 @@ async function envoyerViaSmtp({ emailCandidat, sujet, html }) {
   return { envoye: true, id: info.messageId };
 }
 
-/**
- * Envoie au candidat un email l'informant de sa sélection : créneau d'entretien,
- * frais de dossier et de formation à l'entretien, et liste des documents à
- * fournir (diplômes en cascade selon niveauEtude).
- * Utilise l'API Brevo si BREVO_API_KEY est défini (recommandé), sinon le SMTP classique.
- */
-async function envoyerEmailSelection({
-  emailCandidat, nomCandidat, nomSociete, poste,
-  creneauTexte, entretienLieu, entretienNotes, niveauEtude,
-  rdvPaiementTexte, rdvPaiementLieu
-}) {
+// Point commun aux deux mails : choisit Brevo API si dispo, sinon SMTP, sinon échec.
+async function envoyerHtml({ emailCandidat, sujet, html }) {
   if (!emailCandidat) {
     return { envoye: false, raison: 'email_manquant' };
   }
-
-  const html = construireHtml({
-    nomCandidat, nomSociete, poste, creneauTexte, entretienLieu, entretienNotes, niveauEtude,
-    rdvPaiementTexte, rdvPaiementLieu
-  });
-  const sujet = `Tu as été sélectionné(e) par ${nomSociete} !`;
 
   if (process.env.BREVO_API_KEY) {
     try {
@@ -198,8 +216,48 @@ async function envoyerEmailSelection({
     }
   }
 
-  console.warn('[Email] Aucune configuration email trouvée (.env) — email de secours non envoyé.');
+  console.warn('[Email] Aucune configuration email trouvée (.env) — email non envoyé.');
   return { envoye: false, raison: 'configuration_incomplete' };
 }
 
-module.exports = { envoyerEmailSelection, diplomesRequis, FRAIS_DOSSIER_FCFA, FRAIS_FORMATION_ENTRETIEN_FCFA };
+/**
+ * Mail n°1 — envoyé dès que l'admin fixe (ou refixe, après un dossier incomplet)
+ * un créneau de rendez-vous de paiement et dépôt de dossier. Contient le
+ * créneau, les frais et la liste des documents à fournir. Ne contient PAS le
+ * créneau d'entretien (voir envoyerEmailEntretien ci-dessous).
+ */
+async function envoyerEmailRdvPaiement({
+  emailCandidat, nomCandidat, nomSociete, poste, niveauEtude,
+  rdvPaiementTexte, rdvPaiementLieu, estRelance
+}) {
+  const html = construireHtmlRdvPaiement({
+    nomCandidat, nomSociete, poste, niveauEtude, rdvPaiementTexte, rdvPaiementLieu, estRelance
+  });
+  const sujet = estRelance
+    ? `Nouveau rendez-vous de dépôt de dossier — ${nomSociete}`
+    : `Tu as été sélectionné(e) par ${nomSociete} ! Rendez-vous de paiement et dépôt de dossier`;
+  return envoyerHtml({ emailCandidat, sujet, html });
+}
+
+/**
+ * Mail n°2 — envoyé UNIQUEMENT une fois que l'admin a validé, lors du rendez-vous
+ * ci-dessus, que le paiement a été effectué et le dossier déposé complet.
+ * Contient le créneau d'entretien.
+ */
+async function envoyerEmailEntretien({
+  emailCandidat, nomCandidat, nomSociete, poste, creneauTexte, entretienLieu, entretienNotes
+}) {
+  const html = construireHtmlEntretien({
+    nomCandidat, nomSociete, poste, creneauTexte, entretienLieu, entretienNotes
+  });
+  const sujet = `Ton dossier est validé — informations sur ton entretien chez ${nomSociete}`;
+  return envoyerHtml({ emailCandidat, sujet, html });
+}
+
+module.exports = {
+  envoyerEmailRdvPaiement,
+  envoyerEmailEntretien,
+  diplomesRequis,
+  FRAIS_DOSSIER_FCFA,
+  FRAIS_FORMATION_ENTRETIEN_FCFA
+};

@@ -580,7 +580,7 @@ router.post('/mises-en-relation/:id/rdv-paiement', async (req, res) => {
 router.post('/mises-en-relation/:id/valider-paiement', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT mer.*, d.poste, e.nom_societe, c.nom_complet, c.niveau_etude, c.user_id AS candidat_user_id,
+      `SELECT mer.*, d.poste, e.nom_societe, c.nom_complet, c.niveau_etude, c.code_candidat, c.user_id AS candidat_user_id,
               u.telephone, u.email
        FROM mises_en_relation mer
        JOIN demandes d ON d.id = mer.demande_id
@@ -619,6 +619,27 @@ router.post('/mises-en-relation/:id/valider-paiement', async (req, res) => {
     });
 
     await pool.query(`UPDATE mises_en_relation SET statut = 'notifie', notifie_le = NOW() WHERE id = ?`, [req.params.id]);
+
+    // Caisse : on enregistre le paiement confirmé (frais de dossier + frais de
+    // formation à l'entretien) dans la table transactions, pour le suivi financier.
+    await pool.query(
+      `INSERT INTO transactions
+       (mise_en_relation_id, candidat_id, code_candidat, candidat_nom, nom_societe, poste,
+        montant_dossier_fcfa, montant_formation_fcfa, montant_total_fcfa, valide_par)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        sel.id,
+        sel.candidat_id,
+        sel.code_candidat || null,
+        sel.nom_complet,
+        sel.nom_societe,
+        sel.poste,
+        FRAIS_DOSSIER_FCFA,
+        FRAIS_FORMATION_ENTRETIEN_FCFA,
+        FRAIS_DOSSIER_FCFA + FRAIS_FORMATION_ENTRETIEN_FCFA,
+        req.utilisateur.id
+      ]
+    );
 
     const messageNotification = `Ton paiement et ton dossier ont été validés pour le poste "${sel.poste}" chez ${sel.nom_societe}.\n`
       + `Entretien prévu : ${creneauTexte}\n`

@@ -26,8 +26,17 @@ router.post(
       parcours_pedagogique, parcours_professionnel, atouts
     } = req.body;
 
-    if (!email || !mot_de_passe || !telephone || !nom_complet || !niveau_etude || !domaine) {
-      return res.status(400).json({ erreur: 'Merci de remplir tous les champs obligatoires.' });
+    if (
+      !email || !mot_de_passe || !telephone || !nom_complet || !ville ||
+      !niveau_etude || !domaine || !parcours_pedagogique || !atouts
+    ) {
+      return res.status(400).json({ erreur: 'Merci de remplir tous les champs obligatoires (seul le parcours professionnel est optionnel).' });
+    }
+    if (!req.files?.cv?.[0]) {
+      return res.status(400).json({ erreur: 'Le CV est obligatoire.' });
+    }
+    if (!req.files?.photo?.[0]) {
+      return res.status(400).json({ erreur: 'La photo est obligatoire.' });
     }
     if (!req.files?.diplome?.[0]) {
       return res.status(400).json({ erreur: 'Le scan de ton diplôme est obligatoire.' });

@@ -180,8 +180,8 @@ document.getElementById('formCandidat').addEventListener('submit', async (e) => 
     const resultat = await reponse.json();
     if (!reponse.ok) throw new Error(resultat.erreur || 'Erreur lors de l\'inscription.');
 
-    const messageId = resultat.candidat_id
-      ? ` Ton numéro d'identifiant candidat est le <strong>#${resultat.candidat_id}</strong> — garde-le, il permet à l'APRJ de retrouver rapidement ton dossier.`
+    const messageId = resultat.code_candidat
+      ? ` Ton identifiant candidat est <strong>${resultat.code_candidat}</strong> — garde-le, il permet à l'APRJ de retrouver rapidement ton dossier.`
       : '';
     afficherMessage(zone, 'Ton profil a été enregistré avec succès. L\'Association A.P.R.J. a été notifiée. Tu peux être contacté(e) prochainement pour la suite du parcours.' + messageId, 'succes');
     e.target.reset();

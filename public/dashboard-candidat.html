@@ -171,8 +171,8 @@ async function chargerProfil() {
   try {
     const { candidat } = await appelApi('/candidats/moi');
     const etiquetteId = document.getElementById('etiquetteMonId');
-    if (candidat.id) {
-      etiquetteId.textContent = `Numéro d'identifiant : #${candidat.id}`;
+    if (candidat.code_candidat) {
+      etiquetteId.textContent = `Identifiant : ${candidat.code_candidat}`;
       etiquetteId.style.display = 'inline-block';
     }
     document.getElementById('nom_complet').value = candidat.nom_complet || '';

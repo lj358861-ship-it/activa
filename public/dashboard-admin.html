@@ -75,13 +75,17 @@
   <div id="vueAttente"></div>
   <div id="vueEmployeurs" style="display:none;"></div>
   <div id="vueCandidats" style="display:none;">
-    <div class="carte-formulaire compact" style="max-width:520px; margin:0 0 18px;">
-      <label for="rechercheCandidatId" style="font-weight:600; display:block; margin-bottom:8px;">Rechercher un candidat par numéro d'identifiant</label>
-      <div style="display:flex; gap:10px;">
-        <input type="number" id="rechercheCandidatId" min="1" placeholder="Ex : 42" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault(); rechercherCandidatParId();}">
-        <button type="button" class="btn btn-or" onclick="rechercherCandidatParId()">Rechercher</button>
-        <button type="button" class="btn btn-contour" onclick="reinitialiserRechercheCandidats()">Réinitialiser</button>
+    <div class="bloc-recherche">
+      <p class="bloc-recherche-titre">Rechercher un candidat par identifiant</p>
+      <div class="barre-recherche">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="rechercheCandidatCode" placeholder="AR26-0001" autocapitalize="characters" autocomplete="off"
+               oninput="this.value = this.value.toUpperCase();"
+               onkeydown="if(event.key==='Enter'){event.preventDefault(); rechercherCandidatParCode();}">
+        <button type="button" class="barre-recherche-effacer" title="Effacer" onclick="reinitialiserRechercheCandidats()">✕</button>
+        <button type="button" class="barre-recherche-bouton" onclick="rechercherCandidatParCode()">Rechercher</button>
       </div>
+      <p class="bloc-recherche-aide">Identifiant attribué à l'inscription (ex : AR26-0417). L'année (26) puis 4 chiffres.</p>
     </div>
     <div id="resultatRechercheCandidat"></div>
     <div id="listeCandidatsConteneur"></div>
@@ -116,6 +120,15 @@
     <div id="listePropositions"></div>
   </div>
   <div id="vueSelections" style="display:none;">
+    <div class="bloc-recherche">
+      <p class="bloc-recherche-titre">Rechercher une sélection (candidat)</p>
+      <div class="barre-recherche">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="rechercheSelection" placeholder="Identifiant (AR26-0001) ou nom du candidat" autocomplete="off" oninput="filtrerSelections()">
+        <button type="button" class="barre-recherche-effacer" title="Effacer" onclick="document.getElementById('rechercheSelection').value=''; filtrerSelections();">✕</button>
+      </div>
+      <p class="bloc-recherche-aide">Utile pour retrouver un candidat en attente de rendez-vous de paiement/dépôt de dossier.</p>
+    </div>
     <div id="listeSelections"></div>
   </div>
 
@@ -683,12 +696,13 @@ async function supprimerEmployeur(id) {
 }
 
 let tousLesCandidats = [];
+let candidatsAffiches = {};
 
 async function chargerCandidats() {
   const conteneur = document.getElementById('listeCandidatsConteneur');
   conteneur.innerHTML = '<p>Chargement...</p>';
   document.getElementById('resultatRechercheCandidat').innerHTML = '';
-  document.getElementById('rechercheCandidatId').value = '';
+  document.getElementById('rechercheCandidatCode').value = '';
   try {
     const { candidats } = await appelApi('/admin/candidats');
     tousLesCandidats = candidats;
@@ -697,17 +711,19 @@ async function chargerCandidats() {
 }
 
 function afficherTableauCandidats(candidats, conteneur) {
+  candidatsAffiches = {};
+  candidats.forEach((c) => { candidatsAffiches[c.id] = c; });
   if (!candidats.length) {
     conteneur.innerHTML = '<p>Aucun candidat trouvé.</p>';
     return;
   }
   conteneur.innerHTML = `
     <table class="liste">
-      <thead><tr><th>ID</th><th>Nom</th><th>Téléphone</th><th>Domaine</th><th>Niveau</th><th>Ville</th><th>WhatsApp envoyé</th><th></th></tr></thead>
+      <thead><tr><th>Identifiant</th><th>Nom</th><th>Téléphone</th><th>Domaine</th><th>Niveau</th><th>Ville</th><th>WhatsApp envoyé</th><th></th></tr></thead>
       <tbody>
         ${candidats.map((c) => `
           <tr>
-            <td><strong>#${c.id}</strong></td>
+            <td><strong>${c.code_candidat || '—'}</strong></td>
             <td>${c.nom_complet}</td>
             <td>${c.telephone ? c.telephone : '<span style="color:var(--rouge);">Non renseigné</span>'}</td>
             <td>${c.domaine}</td>
@@ -725,14 +741,14 @@ function afficherTableauCandidats(candidats, conteneur) {
   `;
 }
 
-async function rechercherCandidatParId() {
+async function rechercherCandidatParCode() {
   const zone = document.getElementById('resultatRechercheCandidat');
-  const valeur = document.getElementById('rechercheCandidatId').value.trim();
+  const valeur = document.getElementById('rechercheCandidatCode').value.trim();
   if (!valeur) { reinitialiserRechercheCandidats(); return; }
   zone.innerHTML = '<p>Recherche...</p>';
   document.getElementById('listeCandidatsConteneur').innerHTML = '';
   try {
-    const { candidat } = await appelApi(`/admin/candidats/${valeur}`);
+    const { candidat } = await appelApi(`/admin/candidats/code/${encodeURIComponent(valeur)}`);
     zone.innerHTML = '';
     afficherTableauCandidats([candidat], document.getElementById('listeCandidatsConteneur'));
   } catch (err) {
@@ -741,16 +757,15 @@ async function rechercherCandidatParId() {
 }
 
 function reinitialiserRechercheCandidats() {
-  document.getElementById('rechercheCandidatId').value = '';
+  document.getElementById('rechercheCandidatCode').value = '';
   document.getElementById('resultatRechercheCandidat').innerHTML = '';
   afficherTableauCandidats(tousLesCandidats, document.getElementById('listeCandidatsConteneur'));
 }
 
 function ouvrirFicheCandidat(id) {
-  const candidat = tousLesCandidats.find((c) => c.id === id) || tousLesCandidats.find((c) => String(c.id) === String(id));
+  const candidat = candidatsAffiches[id];
   if (candidat) { afficherFicheCandidat(candidat); return; }
-  // Cas où la fiche vient d'un résultat de recherche par id (pas forcément dans tousLesCandidats)
-  appelApi(`/admin/candidats/${id}`).then(({ candidat }) => afficherFicheCandidat(candidat)).catch((err) => alert(err.message));
+  alert('Fiche candidat introuvable, merci de recharger la liste.');
 }
 
 function afficherFicheCandidat(c) {
@@ -761,7 +776,7 @@ function afficherFicheCandidat(c) {
         ? `<img src="/uploads/${c.photo_path}" style="width:160px; height:160px; border-radius:12px; object-fit:cover; border:1px solid var(--bordure);">`
         : `<div style="width:160px; height:160px; border-radius:12px; background:var(--ivoire); display:flex; align-items:center; justify-content:center; font-size:3rem;">👤</div>`}
       <div style="flex:1; min-width:220px;">
-        <span class="etiquette etiquette-valide" style="margin-bottom:8px; display:inline-block;">ID #${c.id}</span>
+        <span class="etiquette etiquette-valide" style="margin-bottom:8px; display:inline-block;">${c.code_candidat || ('ID #' + c.id)}</span>
         <h2 style="margin:0 0 6px;">${c.nom_complet}</h2>
         <p style="margin:0 0 4px;">${c.domaine} — ${c.niveau_etude}</p>
         <p style="margin:0 0 4px; color:var(--ardoise-douce);">${c.ville || 'Ville non renseignée'}</p>
@@ -946,13 +961,35 @@ const ETIQUETTES_STATUT_SELECTION = {
   annule: { texte: 'Annulé', classe: 'etiquette-rouge' }
 };
 
+let tousLesSelections = [];
+
 async function chargerSelections() {
   const conteneur = document.getElementById('listeSelections');
   conteneur.innerHTML = '<p>Chargement...</p>';
+  document.getElementById('rechercheSelection').value = '';
   try {
     const { selections } = await appelApi('/admin/selections');
+    tousLesSelections = selections;
     if (!selections.length) { conteneur.innerHTML = '<p>Aucune sélection employeur pour le moment.</p>'; return; }
-    conteneur.innerHTML = `
+    afficherTableauSelections(selections);
+  } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+function filtrerSelections() {
+  const requete = document.getElementById('rechercheSelection').value.trim().toLowerCase().replace(/\s|-/g, '');
+  if (!requete) { afficherTableauSelections(tousLesSelections); return; }
+  const filtrees = tousLesSelections.filter((s) => {
+    const code = (s.code_candidat || '').toLowerCase().replace(/\s|-/g, '');
+    const nom = (s.nom_complet || '').toLowerCase();
+    return code.includes(requete) || nom.includes(requete.replace(/-/g, ' '));
+  });
+  afficherTableauSelections(filtrees);
+}
+
+function afficherTableauSelections(selections) {
+  const conteneur = document.getElementById('listeSelections');
+  if (!selections.length) { conteneur.innerHTML = '<p>Aucun résultat pour cette recherche.</p>'; return; }
+  conteneur.innerHTML = `
       <table class="liste">
         <thead><tr><th></th><th>Candidat</th><th>Téléphone</th><th>Poste</th><th>Entreprise</th><th>Entretien</th><th>Rdv paiement/dépôt</th><th>Statut</th><th></th></tr></thead>
         <tbody>
@@ -981,7 +1018,7 @@ async function chargerSelections() {
             return `
             <tr>
               <td>${s.photo_path ? `<img class="miniature" src="/uploads/${s.photo_path}">` : ''}</td>
-              <td>${s.nom_complet}</td>
+              <td>${s.nom_complet}${s.code_candidat ? `<br><span style="font-size:0.78rem; color:var(--ardoise-douce);">${s.code_candidat}</span>` : ''}</td>
               <td>${s.telephone_candidat ? s.telephone_candidat : '<span style="color:var(--rouge);">Non renseigné</span>'}</td>
               <td>${s.poste}</td>
               <td>${s.nom_societe}</td>
@@ -1002,7 +1039,6 @@ async function chargerSelections() {
         </tbody>
       </table>
     `;
-  } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
 }
 
 async function supprimerSelection(id) {

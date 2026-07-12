@@ -116,6 +116,35 @@ async function initialiserBaseDeDonnees() {
     console.log('[init-db] Colonnes diplome_path/cni_path ajoutées à la table candidats.');
   }
 
+  // Migration : ajoute l'identifiant lisible et aléatoire code_candidat (format ARYY-XXXX)
+  // aux candidats existants qui n'en ont pas encore (bases créées avant son introduction,
+  // ou lignes créées par une inscription antérieure à cette migration).
+  const [colonneCode] = await connection.query(
+    `SELECT COUNT(*) AS n FROM information_schema.columns
+     WHERE table_schema = ? AND table_name = 'candidats' AND column_name = 'code_candidat'`,
+    [database]
+  );
+  if (colonneCode[0].n === 0) {
+    await connection.query('ALTER TABLE candidats ADD COLUMN code_candidat VARCHAR(10) NULL UNIQUE AFTER id');
+    console.log('[init-db] Colonne code_candidat ajoutée à la table candidats.');
+  }
+  const [candidatsSansCode] = await connection.query(
+    'SELECT id, YEAR(created_at) AS annee FROM candidats WHERE code_candidat IS NULL'
+  );
+  for (const candidat of candidatsSansCode) {
+    const anneeCourte = String(candidat.annee || new Date().getFullYear()).slice(-2);
+    let code = null;
+    for (let tentative = 0; tentative < 50; tentative++) {
+      const essai = `AR${anneeCourte}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
+      const [existant] = await connection.query('SELECT id FROM candidats WHERE code_candidat = ?', [essai]);
+      if (!existant.length) { code = essai; break; }
+    }
+    if (code) await connection.query('UPDATE candidats SET code_candidat = ? WHERE id = ?', [code, candidat.id]);
+  }
+  if (candidatsSansCode.length) {
+    console.log(`[init-db] Identifiant code_candidat généré pour ${candidatsSansCode.length} candidat(s) existant(s).`);
+  }
+
   // Créer le compte admin par défaut s'il n'existe pas
   const [rows] = await connection.query('SELECT id FROM users WHERE role = "admin" LIMIT 1');
   if (rows.length === 0) {

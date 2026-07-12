@@ -3,7 +3,7 @@ const pool = require('../db');
 const { verifierToken, autoriserRoles } = require('../middleware/auth');
 const uploadImage = require('../middleware/upload-image');
 const { envoyerNotificationSelection, formaterCreneau } = require('../services/whatsapp');
-const { envoyerEmailSelection, diplomesRequis, FRAIS_DOSSIER_FCFA, FRAIS_FORMATION_ENTRETIEN_FCFA } = require('../services/email');
+const { envoyerEmailRdvPaiement, envoyerEmailEntretien, diplomesRequis, FRAIS_DOSSIER_FCFA, FRAIS_FORMATION_ENTRETIEN_FCFA } = require('../services/email');
 const { enregistrerFichier } = require('../services/fichiers');
 
 const router = express.Router();
@@ -434,7 +434,7 @@ router.get('/selections', async (req, res) => {
        JOIN employeurs e ON e.id = d.employeur_id
        JOIN candidats c ON c.id = mer.candidat_id
        JOIN users u ON u.id = c.user_id
-       WHERE mer.statut IN ('selectionne', 'notifie', 'rejete', 'annule')
+       WHERE mer.statut IN ('selectionne', 'paiement_propose', 'notifie', 'rejete', 'annule')
        ORDER BY mer.selectionne_le DESC`
     );
     res.json({ selections: rows });
@@ -451,12 +451,14 @@ router.delete('/mises-en-relation/:id', async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 
-// Confirme le rendez-vous de paiement et dépôt de dossier : l'ADMIN choisit d'abord
-// une date/heure (et un lieu) pour ce rendez-vous, puis le mail complet (créneau
-// d'entretien + rendez-vous de paiement/dépôt + frais + documents à fournir) part
-// au candidat. Le WhatsApp (créneau d'entretien uniquement, template Meta) reste
-// une notification complémentaire, pas obligatoire.
-router.post('/mises-en-relation/:id/notifier', async (req, res) => {
+// ÉTAPE 1 : l'ADMIN choisit une date/heure (et un lieu) pour le rendez-vous de
+// paiement et dépôt de dossier. Un 1er mail part immédiatement au candidat avec
+// ce créneau, les frais et la liste des documents à fournir — SANS le créneau
+// d'entretien, qui n'est révélé qu'à l'étape 2 (voir /valider-paiement plus bas).
+// Cette route fonctionne aussi bien pour le tout premier rendez-vous (statut
+// 'selectionne') que pour reprogrammer un nouveau rendez-vous après un dossier
+// jugé incomplet (statut 'rejete') : dans ce cas un mail de relance est envoyé.
+router.post('/mises-en-relation/:id/rdv-paiement', async (req, res) => {
   try {
     const { rdv_paiement_date, rdv_paiement_lieu } = req.body;
     if (!rdv_paiement_date) {
@@ -482,10 +484,93 @@ router.post('/mises-en-relation/:id/notifier', async (req, res) => {
     if (!rows.length) return res.status(404).json({ erreur: 'Sélection introuvable.' });
     const sel = rows[0];
 
+    if (!['selectionne', 'rejete'].includes(sel.statut)) {
+      return res.status(400).json({ erreur: 'Ce profil n\'est pas dans un état permettant de fixer un rendez-vous de paiement.' });
+    }
+    const estRelance = sel.statut === 'rejete';
+
     await pool.query(
-      `UPDATE mises_en_relation SET rdv_paiement_date = ?, rdv_paiement_lieu = ? WHERE id = ?`,
+      `UPDATE mises_en_relation SET rdv_paiement_date = ?, rdv_paiement_lieu = ?, statut = 'paiement_propose' WHERE id = ?`,
       [rdvPaiementSql, rdv_paiement_lieu || null, req.params.id]
     );
+
+    const rdvPaiementTexte = formaterCreneau(rdvPaiementSql);
+    const resultatEmail = await envoyerEmailRdvPaiement({
+      emailCandidat: sel.email,
+      nomCandidat: sel.nom_complet,
+      nomSociete: sel.nom_societe,
+      poste: sel.poste,
+      niveauEtude: sel.niveau_etude,
+      rdvPaiementTexte,
+      rdvPaiementLieu: rdv_paiement_lieu,
+      estRelance
+    });
+
+    const documentsAFournir = diplomesRequis(sel.niveau_etude).map((d) => `Diplôme : ${d}`);
+    const messageNotification = (estRelance
+      ? `Un nouveau rendez-vous de paiement et dépôt de dossier a été fixé pour le poste "${sel.poste}" chez ${sel.nom_societe}.\n`
+      : `L'entreprise ${sel.nom_societe} a sélectionné ton profil pour le poste "${sel.poste}".\n`)
+      + `Rendez-vous de paiement et dépôt de dossier : ${rdvPaiementTexte}${rdv_paiement_lieu ? ` — ${rdv_paiement_lieu}` : ''}\n`
+      + `Frais de dossier : ${FRAIS_DOSSIER_FCFA.toLocaleString('fr-FR')} FCFA — Frais de formation à l'entretien : ${FRAIS_FORMATION_ENTRETIEN_FCFA.toLocaleString('fr-FR')} FCFA\n`
+      + `Diplômes à fournir (copies légalisées) : ${documentsAFournir.map((d) => d.replace('Diplôme : ', '')).join(', ')}\n`
+      + `⚠️ Consulte bien ton EMAIL (et le dossier spam) : la liste complète des documents à fournir t'y a été envoyée.\n`
+      + `Le créneau de ton entretien te sera communiqué une fois ton dossier validé lors de ce rendez-vous.`;
+
+    await pool.query(
+      `INSERT INTO notifications (user_id, type, titre, message, demande_id, candidat_id)
+       VALUES (?, 'opportunite_emploi', ?, ?, ?, ?)`,
+      [
+        sel.candidat_user_id,
+        estRelance ? `Nouveau rendez-vous de dépôt de dossier — ${sel.nom_societe}` : `Tu as été sélectionné(e) par ${sel.nom_societe} !`,
+        messageNotification,
+        sel.demande_id,
+        sel.candidat_id
+      ]
+    );
+
+    const raisonsEmail = {
+      configuration_incomplete: 'la configuration email (Brevo/SMTP, .env) est incomplète sur le serveur.',
+      email_manquant: 'le candidat n\'a pas d\'adresse email valide.',
+      erreur_brevo: 'l\'envoi via Brevo a échoué (voir détails techniques).',
+      erreur_smtp: 'l\'envoi de l\'email a échoué (voir détails techniques).'
+    };
+
+    const emailOk = resultatEmail && resultatEmail.envoye;
+    const message = emailOk
+      ? 'Rendez-vous de paiement et dépôt de dossier envoyé au candidat par email (créneau, frais et documents à fournir). '
+        + 'Le créneau d\'entretien lui sera envoyé une fois le paiement validé.'
+      : 'Rendez-vous enregistré, mais l\'email n\'a pas pu être envoyé '
+        + `(${raisonsEmail[resultatEmail?.raison] || resultatEmail?.raison}). `
+        + 'La notification (créneau, frais et documents) reste bien visible dans son espace candidat.';
+
+    return res.json({ message, email: resultatEmail });
+  } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
+});
+
+// ÉTAPE 2 : l'ADMIN valide, après le rendez-vous ci-dessus, que le paiement a
+// été effectué et le dossier déposé complet. C'est SEULEMENT à ce moment que le
+// 2e mail part au candidat avec le créneau d'entretien (fixé par l'employeur
+// lors de sa sélection du profil). Le WhatsApp (créneau d'entretien, template
+// Meta) part au même moment, en complément — pas obligatoire.
+router.post('/mises-en-relation/:id/valider-paiement', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT mer.*, d.poste, e.nom_societe, c.nom_complet, c.niveau_etude, c.user_id AS candidat_user_id,
+              u.telephone, u.email
+       FROM mises_en_relation mer
+       JOIN demandes d ON d.id = mer.demande_id
+       JOIN employeurs e ON e.id = d.employeur_id
+       JOIN candidats c ON c.id = mer.candidat_id
+       JOIN users u ON u.id = c.user_id
+       WHERE mer.id = ?`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ erreur: 'Sélection introuvable.' });
+    const sel = rows[0];
+
+    if (sel.statut !== 'paiement_propose') {
+      return res.status(400).json({ erreur: 'Ce profil n\'a pas de rendez-vous de paiement en attente de validation.' });
+    }
 
     const resultatWhatsapp = await envoyerNotificationSelection({
       telephoneCandidat: sel.telephone,
@@ -497,37 +582,23 @@ router.post('/mises-en-relation/:id/notifier', async (req, res) => {
       entretienNotes: sel.entretien_notes
     });
 
-    // Le mail est TOUJOURS envoyé (pas seulement en secours du WhatsApp) car
-    // c'est lui qui porte le détail complet : rendez-vous de paiement et dépôt
-    // de dossier (créneau choisi par l'admin ci-dessus), frais de dossier, frais
-    // de formation à l'entretien et liste des documents à fournir (le template
-    // WhatsApp Meta, lui, reste limité à un texte court pré-approuvé).
-    const rdvPaiementTexte = formaterCreneau(rdvPaiementSql);
-    const resultatEmail = await envoyerEmailSelection({
+    const creneauTexte = formaterCreneau(sel.entretien_date);
+    const resultatEmail = await envoyerEmailEntretien({
       emailCandidat: sel.email,
       nomCandidat: sel.nom_complet,
       nomSociete: sel.nom_societe,
       poste: sel.poste,
-      creneauTexte: formaterCreneau(sel.entretien_date),
+      creneauTexte,
       entretienLieu: sel.entretien_lieu,
-      entretienNotes: sel.entretien_notes,
-      niveauEtude: sel.niveau_etude,
-      rdvPaiementTexte,
-      rdvPaiementLieu: rdv_paiement_lieu
+      entretienNotes: sel.entretien_notes
     });
 
     await pool.query(`UPDATE mises_en_relation SET statut = 'notifie', notifie_le = NOW() WHERE id = ?`, [req.params.id]);
 
-    const creneauTexte = formaterCreneau(sel.entretien_date);
-    const documentsAFournir = diplomesRequis(sel.niveau_etude).map((d) => `Diplôme : ${d}`);
-    const messageNotification = `L'entreprise ${sel.nom_societe} a sélectionné ton profil pour le poste "${sel.poste}".\n`
+    const messageNotification = `Ton paiement et ton dossier ont été validés pour le poste "${sel.poste}" chez ${sel.nom_societe}.\n`
       + `Entretien prévu : ${creneauTexte}\n`
       + `Lieu de l'entretien : ${sel.entretien_lieu || 'à confirmer'}\n`
       + (sel.entretien_notes ? `Informations complémentaires : ${sel.entretien_notes}\n` : '')
-      + `Rendez-vous de paiement et dépôt de dossier : ${rdvPaiementTexte}${rdv_paiement_lieu ? ` — ${rdv_paiement_lieu}` : ''}\n`
-      + `Frais de dossier : ${FRAIS_DOSSIER_FCFA.toLocaleString('fr-FR')} FCFA — Frais de formation à l'entretien : ${FRAIS_FORMATION_ENTRETIEN_FCFA.toLocaleString('fr-FR')} FCFA\n`
-      + `Diplômes à fournir (copies légalisées) : ${documentsAFournir.map((d) => d.replace('Diplôme : ', '')).join(', ')}\n`
-      + `⚠️ Consulte bien ton EMAIL : la liste complète des documents à fournir t'y a été envoyée.\n`
       + `Tu vas être recontacté(e) prochainement.`;
 
     await pool.query(
@@ -535,7 +606,7 @@ router.post('/mises-en-relation/:id/notifier', async (req, res) => {
        VALUES (?, 'opportunite_emploi', ?, ?, ?, ?)`,
       [
         sel.candidat_user_id,
-        `Tu as été sélectionné(e) par ${sel.nom_societe} !`,
+        `Dossier validé — informations sur ton entretien chez ${sel.nom_societe}`,
         messageNotification,
         sel.demande_id,
         sel.candidat_id
@@ -559,16 +630,15 @@ router.post('/mises-en-relation/:id/notifier', async (req, res) => {
 
     let message;
     if (emailOk && whatsappOk) {
-      message = 'Rendez-vous confirmé : le candidat a été notifié par WhatsApp ET a reçu le mail complet '
-        + '(entretien, rendez-vous de paiement/dépôt de dossier, frais et liste des documents à fournir).';
+      message = 'Paiement validé : le candidat a reçu le créneau d\'entretien par email ET par WhatsApp.';
     } else if (emailOk) {
-      message = 'Rendez-vous confirmé : le mail complet (entretien, rendez-vous de paiement/dépôt, frais et documents à fournir) a bien été envoyé au candidat. '
+      message = 'Paiement validé : le créneau d\'entretien a bien été envoyé au candidat par email. '
         + `L'envoi WhatsApp, lui, a échoué (${raisonsWhatsapp[resultatWhatsapp.raison] || resultatWhatsapp.raison}).`;
     } else {
-      message = 'Candidat marqué comme notifié, mais ni WhatsApp ni l\'email n\'ont pu être envoyés '
+      message = 'Paiement validé, mais ni WhatsApp ni l\'email n\'ont pu être envoyés '
         + `(WhatsApp : ${raisonsWhatsapp[resultatWhatsapp.raison] || resultatWhatsapp.raison} ; `
         + `Email : ${raisonsEmail[resultatEmail?.raison] || resultatEmail?.raison}). `
-        + 'La notification (avec le créneau, les frais et les documents) reste bien visible dans son espace candidat.';
+        + 'Le créneau d\'entretien reste bien visible dans son espace candidat.';
     }
 
     return res.json({ message, whatsapp: resultatWhatsapp, email: resultatEmail });

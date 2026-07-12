@@ -86,6 +86,9 @@
       </div>
       <div class="ligne-deux">
         <div class="champ"><label for="nom_complet">Nom complet *</label><input type="text" id="nom_complet" required></div>
+        <div class="champ"><label for="date_naissance">Date de naissance *</label><input type="date" id="date_naissance" required></div>
+      </div>
+      <div class="ligne-deux">
         <div class="champ"><label for="ville">Ville</label><input type="text" id="ville"></div>
       </div>
       <div class="ligne-deux">
@@ -176,6 +179,7 @@ async function chargerProfil() {
       etiquetteId.style.display = 'inline-block';
     }
     document.getElementById('nom_complet').value = candidat.nom_complet || '';
+    if (candidat.date_naissance) document.getElementById('date_naissance').value = new Date(candidat.date_naissance).toISOString().slice(0, 10);
     document.getElementById('ville').value = candidat.ville || '';
     document.getElementById('domaine').value = candidat.domaine || '';
     document.getElementById('niveau_etude').value = candidat.niveau_etude || '';
@@ -206,7 +210,7 @@ document.getElementById('formProfil').addEventListener('submit', async (e) => {
   const bouton = document.getElementById('btnProfil');
   bouton.disabled = true;
   const donnees = new FormData();
-  ['nom_complet', 'ville', 'domaine', 'niveau_etude', 'parcours_pedagogique', 'parcours_professionnel', 'atouts'].forEach((champ) => {
+  ['nom_complet', 'date_naissance', 'ville', 'domaine', 'niveau_etude', 'parcours_pedagogique', 'parcours_professionnel', 'atouts'].forEach((champ) => {
     donnees.append(champ, document.getElementById(champ).value);
   });
   const photo = document.getElementById('photo').files[0];

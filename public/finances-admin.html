@@ -184,7 +184,10 @@ async function appelApiFinances(chemin, options = {}) {
   const donnees = await reponse.json().catch(() => ({}));
   if (!reponse.ok) {
     if (donnees.pin_requis) { oublierJetonFinances(); afficherEcranPin(); }
-    throw new Error(donnees.erreur || 'Une erreur est survenue.');
+    if (!donnees.erreur && (reponse.status === 404 || reponse.status === 501)) {
+      throw new Error(`Cette fonctionnalité (${chemin}) n'existe pas encore sur le serveur déployé — le code du serveur doit être redéployé.`);
+    }
+    throw new Error(donnees.erreur || `Erreur serveur (code ${reponse.status}).`);
   }
   return donnees;
 }

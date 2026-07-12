@@ -313,6 +313,10 @@ async function chargerPropositions() {
             : `<div class="carte-icone proposition-photo" style="font-size:2rem;">👤</div>`}
           <div class="proposition-infos">
             <p style="margin:0 0 4px;"><strong>${p.nom_complet}</strong> — ${p.ville || '—'} — ${p.niveau_etude} (${p.domaine})</p>
+            <p style="margin:0 0 4px;">
+              <span class="etiquette">${calculerAge(p.date_naissance) !== null ? `${calculerAge(p.date_naissance)} ans` : 'Âge non renseigné'}</span>
+              <span class="etiquette ${p.diplome_path ? 'etiquette-valide' : 'etiquette-attente'}">${p.diplome_path ? '🎓 Diplôme fourni' : '🎓 Diplôme non fourni'}</span>
+            </p>
             ${p.parcours_professionnel ? `<p style="margin:0 0 4px;">${p.parcours_professionnel}</p>` : ''}
             ${p.atouts ? `<p style="margin:0 0 4px;"><em>Atouts : ${p.atouts}</em></p>` : ''}
             <p style="margin:0 0 4px;">Correspondance : <span class="etiquette etiquette-score">${p.score_correspondance}%</span></p>
@@ -407,6 +411,10 @@ function ouvrirFicheCandidatEmployeur(id) {
         ${c.code_candidat ? `<span class="etiquette etiquette-valide" style="margin-bottom:8px; display:inline-block;">${c.code_candidat}</span>` : ''}
         <h2 style="margin:0 0 6px;">${c.nom_complet}</h2>
         <p style="margin:0 0 4px;">${c.domaine} — ${c.niveau_etude}</p>
+        <p style="margin:0 0 4px;">
+          <span class="etiquette">${calculerAge(c.date_naissance) !== null ? `${calculerAge(c.date_naissance)} ans` : 'Âge non renseigné'}</span>
+          <span class="etiquette ${c.diplome_path ? 'etiquette-valide' : 'etiquette-attente'}">${c.diplome_path ? '🎓 Diplôme fourni' : '🎓 Diplôme non fourni'}</span>
+        </p>
         <p style="margin:0 0 4px; color:var(--ardoise-douce);">${c.ville || 'Ville non renseignée'}</p>
         ${c.score_correspondance ? `<p style="margin:0;">Correspondance : <span class="etiquette etiquette-score">${c.score_correspondance}%</span></p>` : ''}
       </div>

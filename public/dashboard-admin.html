@@ -616,12 +616,14 @@ chargerEnAttente();
 async function chargerStats() {
   try {
     const s = await appelApi('/admin/statistiques');
-    document.getElementById('stats').innerHTML = `
-      <div class="tb-stat"><div class="valeur">${s.total_candidats}</div><div class="label">Candidats inscrits</div></div>
-      <div class="tb-stat"><div class="valeur">${s.total_employeurs}</div><div class="label">Entreprises inscrites</div></div>
-      <div class="tb-stat"><div class="valeur">${s.employeurs_en_attente}</div><div class="label">En attente de validation</div></div>
-      <div class="tb-stat"><div class="valeur">${s.demandes_ouvertes}</div><div class="label">Demandes ouvertes</div></div>
+    const conteneur = document.getElementById('stats');
+    conteneur.innerHTML = `
+      <div class="tb-stat"><span class="icone">🧑‍🎓</span><div class="valeur" data-compteur="${s.total_candidats}">0</div><div class="label">Candidats inscrits</div></div>
+      <div class="tb-stat"><span class="icone">🏢</span><div class="valeur" data-compteur="${s.total_employeurs}">0</div><div class="label">Entreprises inscrites</div></div>
+      <div class="tb-stat"><span class="icone">⏳</span><div class="valeur" data-compteur="${s.employeurs_en_attente}">0</div><div class="label">En attente de validation</div></div>
+      <div class="tb-stat"><span class="icone">📋</span><div class="valeur" data-compteur="${s.demandes_ouvertes}">0</div><div class="label">Demandes ouvertes</div></div>
     `;
+    animerCompteurs(conteneur);
   } catch (err) { console.error(err); }
 }
 

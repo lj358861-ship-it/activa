@@ -24,14 +24,11 @@
   .periode-btn.actif, .periode-btn:hover { background: var(--marine); color: var(--blanc); }
   .plage-perso { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 24px; }
   .plage-perso .champ { margin-bottom: 0; }
-  .graphique-barres { display: flex; align-items: flex-end; gap: 3px; height: 160px; background: var(--blanc); border: 1px solid var(--bordure); border-radius: var(--rayon); padding: 16px 12px 8px; margin-bottom: 28px; overflow-x: auto; }
-  .barre-jour { flex: 1 0 auto; min-width: 6px; background: var(--or); border-radius: 3px 3px 0 0; position: relative; transition: background 0.15s ease; }
-  .barre-jour:hover { background: var(--marine); }
-  .barre-jour:hover::after {
-    content: attr(data-info); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
-    background: var(--marine); color: var(--blanc); font-size: 0.7rem; padding: 4px 8px; border-radius: 6px;
-    white-space: nowrap; margin-bottom: 4px; pointer-events: none;
-  }
+  .graphique-info { min-height:22px; font-size:0.88rem; color:var(--marine); font-weight:600; margin-bottom:10px; text-align:center; transition: opacity 0.15s ease; }
+  .graphique-barres { display: flex; align-items: flex-end; gap: 4px; height: 180px; background: var(--blanc); border: 1px solid var(--bordure); border-radius: var(--rayon); padding: 18px 12px 10px; margin-bottom: 28px; }
+  .barre-jour-conteneur { flex: 1 1 0; max-width: 32px; display: flex; align-items: flex-end; height: 100%; cursor: pointer; }
+  .barre-jour { width: 100%; background: linear-gradient(180deg, var(--or), var(--marine)); border-radius: 5px 5px 2px 2px; height: 0%; transition: height 0.7s cubic-bezier(0.22, 1, 0.36, 1), filter 0.15s ease; }
+  .barre-jour-conteneur:hover .barre-jour, .barre-jour-conteneur.actif .barre-jour { filter: brightness(1.2); }
 </style>
 </head>
 <body>
@@ -120,6 +117,7 @@
   <div class="tb-stats" id="statsRdv" style="margin-bottom:32px;"></div>
 
   <h3 style="margin-top:8px;">Évolution (30 derniers jours)</h3>
+  <div class="graphique-info" id="graphiqueInfo">Touchez une barre pour voir le détail du jour</div>
   <div class="graphique-barres" id="graphiqueEvolution"></div>
 
   <h3>Détail des transactions</h3>
@@ -147,6 +145,16 @@
     </div>
   </div>
   <div id="listeTransactions"></div>
+
+  <div style="margin-top:48px; padding:22px; border:1.5px solid var(--rouge); border-radius: var(--rayon); background:#FBE9E4;">
+    <h3 style="color:var(--rouge); margin-top:0;">Zone dangereuse — réinitialiser les données de test</h3>
+    <p style="font-size:0.88rem; color:var(--ardoise); margin-bottom:16px;">
+      Supprime <strong>définitivement</strong> tous les comptes candidats et employeurs (profils, CV, photos, diplômes, CNI, demandes, mises en relation, notifications) ainsi que <strong>toutes les transactions</strong> de la caisse.
+      Le compte admin et le contenu du site (services, événements, collaborateurs, carrousel, messages de contact) ne sont pas touchés.
+      Utile pour repartir sur une base propre après une phase de test, avant l'ouverture au public.
+    </p>
+    <button type="button" class="btn btn-danger" onclick="ouvrirModalReinitialisation()">Réinitialiser toutes les données de test</button>
+  </div>
 </div>
 
 <footer class="pied"><div class="conteneur">&copy; 2026 Association A.P.R.J. — Tenons-nous ensemble pour construire un lendemain meilleur.</div></footer>
@@ -246,12 +254,13 @@ async function chargerResume() {
     dernierResume = donnees;
     const { resume, en_attente } = donnees;
     conteneur.innerHTML = `
-      <div class="tb-stat"><div class="valeur">${formaterFcfa(resume.jour.total_fcfa)}</div><div class="label">Aujourd'hui (${resume.jour.nombre} paiement${resume.jour.nombre > 1 ? 's' : ''})</div></div>
-      <div class="tb-stat"><div class="valeur">${formaterFcfa(resume.semaine.total_fcfa)}</div><div class="label">Cette semaine (${resume.semaine.nombre})</div></div>
-      <div class="tb-stat"><div class="valeur">${formaterFcfa(resume.mois.total_fcfa)}</div><div class="label">Ce mois-ci (${resume.mois.nombre})</div></div>
-      <div class="tb-stat"><div class="valeur">${formaterFcfa(resume.annee.total_fcfa)}</div><div class="label">Cette année (${resume.annee.nombre})</div></div>
-      <div class="tb-stat"><div class="valeur">${formaterFcfa(resume.tout.total_fcfa)}</div><div class="label">Depuis toujours (${resume.tout.nombre})</div></div>
+      <div class="tb-stat"><span class="icone">📅</span><div class="valeur" data-compteur="${resume.jour.total_fcfa}" data-suffixe=" FCFA">0 FCFA</div><div class="label">Aujourd'hui (${resume.jour.nombre} paiement${resume.jour.nombre > 1 ? 's' : ''})</div></div>
+      <div class="tb-stat"><span class="icone">🗓️</span><div class="valeur" data-compteur="${resume.semaine.total_fcfa}" data-suffixe=" FCFA">0 FCFA</div><div class="label">Cette semaine (${resume.semaine.nombre})</div></div>
+      <div class="tb-stat"><span class="icone">📆</span><div class="valeur" data-compteur="${resume.mois.total_fcfa}" data-suffixe=" FCFA">0 FCFA</div><div class="label">Ce mois-ci (${resume.mois.nombre})</div></div>
+      <div class="tb-stat"><span class="icone">📈</span><div class="valeur" data-compteur="${resume.annee.total_fcfa}" data-suffixe=" FCFA">0 FCFA</div><div class="label">Cette année (${resume.annee.nombre})</div></div>
+      <div class="tb-stat"><span class="icone">🏦</span><div class="valeur" data-compteur="${resume.tout.total_fcfa}" data-suffixe=" FCFA">0 FCFA</div><div class="label">Depuis toujours (${resume.tout.nombre})</div></div>
     `;
+    animerCompteurs(conteneur);
     document.getElementById('pendingActuel').innerHTML =
       `<span class="etiquette etiquette-attente">${en_attente} rendez-vous actuellement en attente de décision (payé / incomplet / annulé)</span>`;
     afficherStatsRdv(periodeActiveRdv);
@@ -263,11 +272,12 @@ function afficherStatsRdv(periode) {
   if (!dernierResume) return;
   const r = dernierResume.rdv[periode];
   conteneur.innerHTML = `
-    <div class="tb-stat"><div class="valeur">${r.envoyes}</div><div class="label">Rendez-vous envoyés</div></div>
-    <div class="tb-stat"><div class="valeur">${r.confirmes}</div><div class="label">Paiements confirmés</div></div>
-    <div class="tb-stat"><div class="valeur">${r.annules}</div><div class="label">Rendez-vous annulés</div></div>
-    <div class="tb-stat"><div class="valeur">${r.incomplets}</div><div class="label">Dossiers incomplets</div></div>
+    <div class="tb-stat"><span class="icone">✉️</span><div class="valeur" data-compteur="${r.envoyes}">0</div><div class="label">Rendez-vous envoyés</div></div>
+    <div class="tb-stat"><span class="icone">✅</span><div class="valeur" data-compteur="${r.confirmes}">0</div><div class="label">Paiements confirmés</div></div>
+    <div class="tb-stat"><span class="icone">🚫</span><div class="valeur" data-compteur="${r.annules}">0</div><div class="label">Rendez-vous annulés</div></div>
+    <div class="tb-stat"><span class="icone">⚠️</span><div class="valeur" data-compteur="${r.incomplets}">0</div><div class="label">Dossiers incomplets</div></div>
   `;
+  animerCompteurs(conteneur);
 }
 
 let periodeActiveRdv = 'jour';
@@ -282,16 +292,38 @@ document.querySelectorAll('#periodeBoutonsRdv .periode-btn').forEach((bouton) =>
 
 async function chargerEvolution() {
   const conteneur = document.getElementById('graphiqueEvolution');
+  const infoZone = document.getElementById('graphiqueInfo');
   try {
     const { evolution } = await appelApiFinances('/evolution?jours=30');
-    if (!evolution.length) { conteneur.innerHTML = '<p style="color:var(--ardoise-douce); font-size:0.85rem;">Aucune donnée pour le moment.</p>'; return; }
+    if (!evolution.length) { conteneur.innerHTML = ''; infoZone.textContent = 'Aucune donnée pour le moment.'; return; }
     const maxTotal = Math.max(...evolution.map((j) => j.total_fcfa), 1);
-    conteneur.innerHTML = evolution.map((j) => {
-      const hauteur = Math.max((j.total_fcfa / maxTotal) * 100, j.total_fcfa > 0 ? 4 : 1);
+
+    conteneur.innerHTML = evolution.map((j, i) => {
+      const hauteur = Math.max((j.total_fcfa / maxTotal) * 100, j.total_fcfa > 0 ? 6 : 2);
       const dateAffichee = new Date(j.jour).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
-      return `<div class="barre-jour" style="height:${hauteur}%;" data-info="${dateAffichee} — ${formaterFcfa(j.total_fcfa)}"></div>`;
+      const info = `${dateAffichee} — ${formaterFcfa(j.total_fcfa)} (${j.nombre} paiement${j.nombre > 1 ? 's' : ''})`;
+      return `<div class="barre-jour-conteneur" data-index="${i}" data-info="${info}" onclick="selectionnerBarre(this)"><div class="barre-jour" data-hauteur="${hauteur}"></div></div>`;
     }).join('');
+
+    // Fait grandir les barres après insertion (sinon la transition CSS n'a rien à animer)
+    requestAnimationFrame(() => {
+      conteneur.querySelectorAll('.barre-jour').forEach((barre, i) => {
+        setTimeout(() => { barre.style.height = `${barre.dataset.hauteur}%`; }, i * 12);
+      });
+    });
+
+    // Sélectionne par défaut le dernier jour ayant un paiement (sinon le dernier jour tout court)
+    const dernierAvecDonnee = [...evolution].reverse().find((j) => j.total_fcfa > 0);
+    const indexParDefaut = dernierAvecDonnee ? evolution.indexOf(dernierAvecDonnee) : evolution.length - 1;
+    const barreParDefaut = conteneur.querySelector(`[data-index="${indexParDefaut}"]`);
+    if (barreParDefaut) selectionnerBarre(barreParDefaut);
   } catch (err) { if (!err.message.includes('PIN')) conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+function selectionnerBarre(el) {
+  document.querySelectorAll('.barre-jour-conteneur').forEach((b) => b.classList.remove('actif'));
+  el.classList.add('actif');
+  document.getElementById('graphiqueInfo').textContent = el.dataset.info;
 }
 
 let periodeActive = 'jour';
@@ -373,6 +405,45 @@ function afficherTransactions(transactions, estFiltre) {
       </table>`;
 }
 
+/* ===== Zone dangereuse : réinitialisation des données de test ===== */
+function ouvrirModalReinitialisation() {
+  document.getElementById('modalReinitialisation').style.display = 'flex';
+  document.getElementById('confirmationTexte').value = '';
+  document.getElementById('erreurReinitialisation').textContent = '';
+  document.getElementById('confirmationTexte').focus();
+}
+
+function fermerModalReinitialisation() {
+  document.getElementById('modalReinitialisation').style.display = 'none';
+}
+
+async function confirmerReinitialisation() {
+  const texte = document.getElementById('confirmationTexte').value.trim();
+  const erreurZone = document.getElementById('erreurReinitialisation');
+  const bouton = document.getElementById('btnConfirmerReinitialisation');
+  erreurZone.textContent = '';
+  bouton.disabled = true;
+  bouton.textContent = 'Suppression en cours...';
+  try {
+    const resultat = await appelApiFinances('/reinitialiser-donnees-test', {
+      method: 'POST',
+      corpsJson: { confirmation: texte }
+    });
+    fermerModalReinitialisation();
+    alert(
+      `${resultat.message}\n\n` +
+      `${resultat.candidats_supprimes} candidat(s), ${resultat.employeurs_supprimes} employeur(s), ` +
+      `${resultat.transactions_supprimees} transaction(s), ${resultat.fichiers_supprimes} fichier(s) supprimés.`
+    );
+    chargerToutesLesDonnees();
+  } catch (err) {
+    erreurZone.textContent = err.message;
+  } finally {
+    bouton.disabled = false;
+    bouton.textContent = 'Supprimer définitivement';
+  }
+}
+
 /* ===== Démarrage : ré-utilise le jeton finances s'il est encore valide (même onglet, session en cours) ===== */
 (async function demarrer() {
   if (obtenirJetonFinances()) {
@@ -385,5 +456,23 @@ function afficherTransactions(transactions, estFiltre) {
   afficherEcranPin();
 })();
 </script>
+<!-- Modal de confirmation — réinitialisation des données de test -->
+<div id="modalReinitialisation" style="display:none; position:fixed; inset:0; background:rgba(11,20,38,0.65); z-index:9999; align-items:center; justify-content:center; padding:20px;">
+  <div class="carte-formulaire compact" style="max-width:440px; width:100%;">
+    <h3 style="color:var(--rouge); margin-top:0;">Confirmer la suppression définitive</h3>
+    <p style="font-size:0.88rem;">
+      Cette action va supprimer <strong>tous</strong> les comptes candidats/employeurs et <strong>toutes</strong> les transactions. C'est irréversible.
+      Tape <strong>SUPPRIMER</strong> ci-dessous pour confirmer.
+    </p>
+    <div class="champ">
+      <input type="text" id="confirmationTexte" placeholder="SUPPRIMER" autocomplete="off">
+    </div>
+    <div id="erreurReinitialisation" style="color:var(--rouge); font-size:0.85rem; min-height:20px;"></div>
+    <div style="display:flex; gap:10px; margin-top:8px;">
+      <button type="button" class="btn btn-contour" style="flex:1;" onclick="fermerModalReinitialisation()">Annuler</button>
+      <button type="button" class="btn btn-danger" style="flex:1;" id="btnConfirmerReinitialisation" onclick="confirmerReinitialisation()">Supprimer définitivement</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

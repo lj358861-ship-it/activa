@@ -12,7 +12,12 @@ const router = express.Router();
 // Inscription candidat : infos compte + profil + CV en une seule soumission
 router.post(
   '/inscription',
-  upload.fields([{ name: 'cv', maxCount: 1 }, { name: 'photo', maxCount: 1 }]),
+  upload.fields([
+    { name: 'cv', maxCount: 1 },
+    { name: 'photo', maxCount: 1 },
+    { name: 'diplome', maxCount: 1 },
+    { name: 'cni', maxCount: 1 }
+  ]),
   async (req, res) => {
     const {
       email, mot_de_passe, telephone,
@@ -22,6 +27,12 @@ router.post(
 
     if (!email || !mot_de_passe || !telephone || !nom_complet || !niveau_etude || !domaine) {
       return res.status(400).json({ erreur: 'Merci de remplir tous les champs obligatoires.' });
+    }
+    if (!req.files?.diplome?.[0]) {
+      return res.status(400).json({ erreur: 'Le scan de ton diplôme est obligatoire.' });
+    }
+    if (!req.files?.cni?.[0]) {
+      return res.status(400).json({ erreur: 'Le scan de ta CNI est obligatoire.' });
     }
 
     const connexion = await pool.getConnection();
@@ -43,13 +54,16 @@ router.post(
 
       const cvPath = await enregistrerFichier(req.files?.cv?.[0], connexion);
       const photoPath = await enregistrerFichier(req.files?.photo?.[0], connexion);
+      const diplomePath = await enregistrerFichier(req.files?.diplome?.[0], connexion);
+      const cniPath = await enregistrerFichier(req.files?.cni?.[0], connexion);
 
-      await connexion.query(
+      const [resultCandidat] = await connexion.query(
         `INSERT INTO candidats
-         (user_id, nom_complet, ville, niveau_etude, domaine, parcours_pedagogique, parcours_professionnel, atouts, cv_path, photo_path)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [userId, nom_complet, ville || null, niveau_etude, domaine, parcours_pedagogique || null, parcours_professionnel || null, atouts || null, cvPath, photoPath]
+         (user_id, nom_complet, ville, niveau_etude, domaine, parcours_pedagogique, parcours_professionnel, atouts, cv_path, photo_path, diplome_path, cni_path)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [userId, nom_complet, ville || null, niveau_etude, domaine, parcours_pedagogique || null, parcours_professionnel || null, atouts || null, cvPath, photoPath, diplomePath, cniPath]
       );
+      const candidatId = resultCandidat.insertId;
 
       await connexion.commit();
 
@@ -69,6 +83,7 @@ router.post(
 
       res.status(201).json({
         message: 'Inscription réussie ! Ton profil a été enregistré.',
+        candidat_id: candidatId,
         notification_whatsapp: resultatWhatsapp.envoye
       });
     } catch (e) {
@@ -98,7 +113,12 @@ router.get('/moi', verifierToken, autoriserRoles('candidat'), async (req, res) =
 router.put(
   '/moi',
   verifierToken, autoriserRoles('candidat'),
-  upload.fields([{ name: 'cv', maxCount: 1 }, { name: 'photo', maxCount: 1 }]),
+  upload.fields([
+    { name: 'cv', maxCount: 1 },
+    { name: 'photo', maxCount: 1 },
+    { name: 'diplome', maxCount: 1 },
+    { name: 'cni', maxCount: 1 }
+  ]),
   async (req, res) => {
     const { nom_complet, ville, niveau_etude, domaine, parcours_pedagogique, parcours_professionnel, atouts } = req.body;
     try {
@@ -112,6 +132,8 @@ router.put(
       ];
       if (req.files?.cv?.[0]) { champs.push('cv_path = ?'); valeurs.push(await enregistrerFichier(req.files.cv[0])); }
       if (req.files?.photo?.[0]) { champs.push('photo_path = ?'); valeurs.push(await enregistrerFichier(req.files.photo[0])); }
+      if (req.files?.diplome?.[0]) { champs.push('diplome_path = ?'); valeurs.push(await enregistrerFichier(req.files.diplome[0])); }
+      if (req.files?.cni?.[0]) { champs.push('cni_path = ?'); valeurs.push(await enregistrerFichier(req.files.cni[0])); }
       valeurs.push(req.utilisateur.id);
       await pool.query(`UPDATE candidats SET ${champs.join(', ')} WHERE user_id = ?`, valeurs);
       res.json({ message: 'Profil mis à jour.' });

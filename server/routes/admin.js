@@ -77,6 +77,28 @@ router.get('/candidats', async (req, res) => {
   }
 });
 
+// Recherche d'un candidat précis par son numéro d'identifiant (barre de recherche
+// de l'espace admin : l'admin tape l'id et récupère directement la fiche du candidat).
+router.get('/candidats/:id', async (req, res) => {
+  if (!/^\d+$/.test(req.params.id)) {
+    return res.status(400).json({ erreur: 'Numéro d\'identifiant invalide.' });
+  }
+  try {
+    const [rows] = await pool.query(
+      `SELECT c.*, u.telephone, u.email
+       FROM candidats c
+       JOIN users u ON u.id = c.user_id
+       WHERE c.id = ?`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ erreur: 'Aucun candidat ne correspond à ce numéro d\'identifiant.' });
+    res.json({ candidat: rows[0] });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erreur: 'Erreur serveur.' });
+  }
+});
+
 // Supprime définitivement un candidat (son compte utilisateur, ce qui supprime
 // en cascade son profil, ses mises en relation et ses notifications liées).
 router.delete('/candidats/:id', async (req, res) => {

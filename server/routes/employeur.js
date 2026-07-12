@@ -134,7 +134,7 @@ router.get('/propositions', verifierToken, autoriserRoles('employeur'), async (r
       `SELECT mer.id, mer.statut, mer.score_correspondance, mer.selectionne_le, mer.notifie_le, mer.created_at,
               d.id AS demande_id, d.poste,
               c.id AS candidat_id, c.nom_complet, c.ville, c.niveau_etude, c.domaine,
-              c.parcours_professionnel, c.atouts, c.photo_path, c.cv_path
+              c.parcours_pedagogique, c.parcours_professionnel, c.atouts, c.photo_path, c.cv_path, c.diplome_path
        FROM mises_en_relation mer
        JOIN demandes d ON d.id = mer.demande_id
        JOIN candidats c ON c.id = mer.candidat_id

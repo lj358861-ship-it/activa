@@ -110,6 +110,20 @@ function squelette(nombre = 3, hauteur = 90) {
   ).join('');
 }
 
+// Calcule un âge (en années) à partir d'une date de naissance (string ou Date).
+// Retourne null si la date est absente/invalide, pour permettre un affichage
+// "Âge non renseigné" plutôt qu'un chiffre erroné.
+function calculerAge(dateNaissance) {
+  if (!dateNaissance) return null;
+  const naissance = new Date(dateNaissance);
+  if (isNaN(naissance.getTime())) return null;
+  const aujourdhui = new Date();
+  let age = aujourdhui.getFullYear() - naissance.getFullYear();
+  const moisPasse = aujourdhui.getMonth() - naissance.getMonth();
+  if (moisPasse < 0 || (moisPasse === 0 && aujourdhui.getDate() < naissance.getDate())) age--;
+  return age;
+}
+
 /* ===== Animation "compteur" : fait défiler une valeur de 0 jusqu'à sa cible.
    Utilisé sur les cartes de statistiques (tableau de bord admin, caisse & finances)
    pour donner un rendu plus vivant/professionnel qu'un simple affichage figé. ===== */

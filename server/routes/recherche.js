@@ -32,7 +32,7 @@ router.get('/demandes/:id/candidats', verifierToken, autoriserRoles('employeur',
     }
 
     const [candidats] = await pool.query(
-      `SELECT id, nom_complet, ville, niveau_etude, domaine, parcours_pedagogique, parcours_professionnel, atouts, cv_path, photo_path, diplome_path
+      `SELECT id, code_candidat, nom_complet, ville, niveau_etude, domaine, parcours_pedagogique, parcours_professionnel, atouts, cv_path, photo_path, diplome_path
        FROM candidats WHERE domaine = ?`,
       [demande.domaine]
     );

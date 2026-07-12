@@ -5,6 +5,7 @@ const uploadImage = require('../middleware/upload-image');
 const { envoyerNotificationSelection, formaterCreneau } = require('../services/whatsapp');
 const { envoyerEmailRdvPaiement, envoyerEmailEntretien, diplomesRequis, FRAIS_DOSSIER_FCFA, FRAIS_FORMATION_ENTRETIEN_FCFA } = require('../services/email');
 const { enregistrerFichier } = require('../services/fichiers');
+const { normaliserCodeCandidat } = require('../services/identifiants');
 
 const router = express.Router();
 
@@ -77,21 +78,23 @@ router.get('/candidats', async (req, res) => {
   }
 });
 
-// Recherche d'un candidat précis par son numéro d'identifiant (barre de recherche
-// de l'espace admin : l'admin tape l'id et récupère directement la fiche du candidat).
-router.get('/candidats/:id', async (req, res) => {
-  if (!/^\d+$/.test(req.params.id)) {
-    return res.status(400).json({ erreur: 'Numéro d\'identifiant invalide.' });
+// Recherche d'un candidat précis par son identifiant lisible (format ARYY-XXXX,
+// ex : AR26-0417). Barre de recherche de l'espace admin : l'admin tape l'identifiant
+// et récupère directement la fiche du candidat. Tolérant à la casse et aux tirets/espaces.
+router.get('/candidats/code/:code', async (req, res) => {
+  const code = normaliserCodeCandidat(req.params.code);
+  if (!code) {
+    return res.status(400).json({ erreur: 'Format d\'identifiant invalide. Attendu : AR26-0001.' });
   }
   try {
     const [rows] = await pool.query(
       `SELECT c.*, u.telephone, u.email
        FROM candidats c
        JOIN users u ON u.id = c.user_id
-       WHERE c.id = ?`,
-      [req.params.id]
+       WHERE c.code_candidat = ?`,
+      [code]
     );
-    if (!rows.length) return res.status(404).json({ erreur: 'Aucun candidat ne correspond à ce numéro d\'identifiant.' });
+    if (!rows.length) return res.status(404).json({ erreur: `Aucun candidat ne correspond à l'identifiant ${code}.` });
     res.json({ candidat: rows[0] });
   } catch (e) {
     console.error(e);
@@ -449,7 +452,7 @@ router.get('/selections', async (req, res) => {
               mer.entretien_date, mer.entretien_lieu, mer.entretien_notes,
               mer.rdv_paiement_date, mer.rdv_paiement_lieu,
               d.id AS demande_id, d.poste, e.nom_societe,
-              c.id AS candidat_id, c.nom_complet, c.ville, c.niveau_etude, c.domaine, c.photo_path,
+              c.id AS candidat_id, c.code_candidat, c.nom_complet, c.ville, c.niveau_etude, c.domaine, c.photo_path,
               u.telephone AS telephone_candidat
        FROM mises_en_relation mer
        JOIN demandes d ON d.id = mer.demande_id

@@ -6,6 +6,7 @@ const uploadImage = require('../middleware/upload-image');
 const { verifierToken, autoriserRoles } = require('../middleware/auth');
 const { envoyerNotificationCandidature } = require('../services/whatsapp');
 const { enregistrerFichier } = require('../services/fichiers');
+const { genererCodeCandidat } = require('../services/identifiants');
 
 const router = express.Router();
 
@@ -56,12 +57,13 @@ router.post(
       const photoPath = await enregistrerFichier(req.files?.photo?.[0], connexion);
       const diplomePath = await enregistrerFichier(req.files?.diplome?.[0], connexion);
       const cniPath = await enregistrerFichier(req.files?.cni?.[0], connexion);
+      const codeCandidat = await genererCodeCandidat(connexion);
 
       const [resultCandidat] = await connexion.query(
         `INSERT INTO candidats
-         (user_id, nom_complet, ville, niveau_etude, domaine, parcours_pedagogique, parcours_professionnel, atouts, cv_path, photo_path, diplome_path, cni_path)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [userId, nom_complet, ville || null, niveau_etude, domaine, parcours_pedagogique || null, parcours_professionnel || null, atouts || null, cvPath, photoPath, diplomePath, cniPath]
+         (user_id, code_candidat, nom_complet, ville, niveau_etude, domaine, parcours_pedagogique, parcours_professionnel, atouts, cv_path, photo_path, diplome_path, cni_path)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [userId, codeCandidat, nom_complet, ville || null, niveau_etude, domaine, parcours_pedagogique || null, parcours_professionnel || null, atouts || null, cvPath, photoPath, diplomePath, cniPath]
       );
       const candidatId = resultCandidat.insertId;
 
@@ -84,6 +86,7 @@ router.post(
       res.status(201).json({
         message: 'Inscription réussie ! Ton profil a été enregistré.',
         candidat_id: candidatId,
+        code_candidat: codeCandidat,
         notification_whatsapp: resultatWhatsapp.envoye
       });
     } catch (e) {

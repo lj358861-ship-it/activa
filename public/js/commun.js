@@ -109,3 +109,22 @@ function squelette(nombre = 3, hauteur = 90) {
     `<div class="squelette" style="height:${hauteur}px;"></div>`
   ).join('');
 }
+
+/* ===== Animation "compteur" : fait défiler une valeur de 0 jusqu'à sa cible.
+   Utilisé sur les cartes de statistiques (tableau de bord admin, caisse & finances)
+   pour donner un rendu plus vivant/professionnel qu'un simple affichage figé. ===== */
+function animerCompteurs(racine = document, dureeMs = 800) {
+  racine.querySelectorAll('[data-compteur]').forEach((el) => {
+    const cible = Number(el.dataset.compteur) || 0;
+    const suffixe = el.dataset.suffixe || '';
+    const debut = performance.now();
+    function etape(maintenant) {
+      const t = Math.min((maintenant - debut) / dureeMs, 1);
+      const progression = 1 - Math.pow(1 - t, 3); // ease-out cubic
+      const valeur = Math.round(cible * progression);
+      el.textContent = `${valeur.toLocaleString('fr-FR')}${suffixe}`;
+      if (t < 1) requestAnimationFrame(etape);
+    }
+    requestAnimationFrame(etape);
+  });
+}

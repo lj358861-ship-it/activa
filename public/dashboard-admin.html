@@ -97,8 +97,8 @@
     <div id="listeSelections"></div>
 
     <!-- Modal de création du rendez-vous de paiement + dépôt de dossier -->
-    <div id="modalRdvPaiement" style="display:none; position:fixed; inset:0; background:rgba(11,20,38,0.55); z-index:999; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto;">
-      <div class="carte-formulaire compact" style="max-width:420px; width:100%; max-height:calc(100vh - 40px); overflow-y:auto; margin:20px 0;">
+    <div id="modalRdvPaiement" style="display:none; position:fixed; inset:0; background:rgba(11,20,38,0.55); z-index:999; padding:20px; overflow-y:auto; -webkit-overflow-scrolling:touch;">
+      <div class="carte-formulaire compact" style="max-width:420px; width:100%; margin:20px auto;">
         <h3 style="margin-bottom:6px;">Rendez-vous de paiement et dépôt de dossier</h3>
         <p style="font-size:0.85rem; color:var(--ardoise-douce); margin-bottom:18px;">
           Ce créneau (+ les frais et la liste des documents) sera envoyé par email au candidat.
@@ -978,7 +978,8 @@ function ouvrirModalRdvPaiement(id) {
   document.getElementById('rdvPaiementDate').value = '';
   document.getElementById('rdvPaiementHeure').value = '';
   document.getElementById('rdvPaiementLieuChamp').value = '';
-  document.getElementById('modalRdvPaiement').style.display = 'flex';
+  document.getElementById('modalRdvPaiement').style.display = 'block';
+  document.getElementById('modalRdvPaiement').scrollTop = 0;
 }
 
 function fermerModalRdvPaiement() {

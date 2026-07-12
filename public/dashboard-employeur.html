@@ -122,8 +122,8 @@
     <div id="listePropositions"></div>
 
     <!-- Modal de choix du créneau d'entretien -->
-    <div id="modalCreneau" style="display:none; position:fixed; inset:0; background:rgba(11,20,38,0.55); z-index:999; align-items:center; justify-content:center; padding:20px;">
-      <div class="carte-formulaire compact" style="max-width:420px; width:100%;">
+    <div id="modalCreneau" style="display:none; position:fixed; inset:0; background:rgba(11,20,38,0.55); z-index:999; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto;">
+      <div class="carte-formulaire compact" style="max-width:420px; width:100%; max-height:calc(100vh - 40px); overflow-y:auto; margin:20px 0;">
         <h3 style="margin-bottom:6px;">Choisir un créneau d'entretien</h3>
         <p style="font-size:0.85rem; color:var(--ardoise-douce); margin-bottom:18px;">
           Ces informations seront transmises au candidat par WhatsApp par l'équipe APRJ.
@@ -305,7 +305,8 @@ async function chargerPropositions() {
           </div>
           <div class="proposition-action">
             ${p.statut === 'propose'
-              ? `<button class="btn btn-or" onclick="selectionnerProfil(${p.id}, this)">Sélectionner ce profil</button>`
+              ? `<button class="btn btn-or" onclick="selectionnerProfil(${p.id}, this)">Sélectionner ce profil</button>
+                 <button class="btn btn-contour" style="margin-top:6px;" onclick="declinerProfil(${p.id})">Pas intéressé</button>`
               : p.statut === 'selectionne'
                 ? `<span class="etiquette etiquette-attente">Sélectionné — notification en cours</span>`
                 : `<span class="etiquette etiquette-valide">Candidat notifié</span>`}
@@ -319,6 +320,15 @@ async function chargerPropositions() {
 }
 
 let miseEnRelationEnCours = null;
+
+// L'employeur retire un profil proposé qui ne l'intéresse pas (avant toute sélection).
+async function declinerProfil(id) {
+  if (!confirm('Retirer ce profil de tes propositions ? L\'APRJ pourra te proposer d\'autres candidats.')) return;
+  try {
+    await appelApi(`/employeurs/propositions/${id}`, { method: 'DELETE' });
+    chargerPropositions();
+  } catch (err) { alert(err.message); }
+}
 
 // Ouvre le modal pour choisir le créneau d'entretien avant de confirmer la sélection
 function selectionnerProfil(id, bouton) {

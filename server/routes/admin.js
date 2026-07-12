@@ -515,7 +515,7 @@ router.post('/mises-en-relation/:id/rdv-paiement', async (req, res) => {
     const estRelance = sel.statut === 'rejete';
 
     await pool.query(
-      `UPDATE mises_en_relation SET rdv_paiement_date = ?, rdv_paiement_lieu = ?, statut = 'paiement_propose' WHERE id = ?`,
+      `UPDATE mises_en_relation SET rdv_paiement_date = ?, rdv_paiement_lieu = ?, statut = 'paiement_propose', rdv_paiement_envoye_le = NOW() WHERE id = ?`,
       [rdvPaiementSql, rdv_paiement_lieu || null, req.params.id]
     );
 
@@ -707,7 +707,7 @@ router.post('/mises-en-relation/:id/annuler', async (req, res) => {
     if (!rows.length) return res.status(404).json({ erreur: 'Sélection introuvable.' });
     const sel = rows[0];
 
-    await pool.query(`UPDATE mises_en_relation SET statut = 'annule' WHERE id = ?`, [req.params.id]);
+    await pool.query(`UPDATE mises_en_relation SET statut = 'annule', annule_le = NOW() WHERE id = ?`, [req.params.id]);
 
     await pool.query(
       `INSERT INTO notifications (user_id, type, titre, message, demande_id, candidat_id)
@@ -742,7 +742,7 @@ router.post('/mises-en-relation/:id/dossier-incomplet', async (req, res) => {
     if (!rows.length) return res.status(404).json({ erreur: 'Sélection introuvable.' });
     const sel = rows[0];
 
-    await pool.query(`UPDATE mises_en_relation SET statut = 'rejete' WHERE id = ?`, [req.params.id]);
+    await pool.query(`UPDATE mises_en_relation SET statut = 'rejete', rejete_le = NOW() WHERE id = ?`, [req.params.id]);
 
     await pool.query(
       `INSERT INTO notifications (user_id, type, titre, message, demande_id, candidat_id)

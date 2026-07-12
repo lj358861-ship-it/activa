@@ -74,7 +74,33 @@ router.get('/resume', async (req, res) => {
       );
       resume[p] = { nombre: ligne.nombre, total_fcfa: ligne.total_fcfa };
     }
-    res.json({ resume });
+
+    // Compteurs des rendez-vous de paiement (envoyés / confirmés / annulés / dossiers
+    // incomplets), par période — basés sur les horodatages dédiés de chaque événement,
+    // pas sur le statut actuel (qui peut changer ensuite, ex: un dossier incomplet
+    // reprogrammé passe à nouveau en "paiement_propose").
+    const rdv = {};
+    for (const p of periodes) {
+      const conditionEnvoyes = p === 'tout' ? 'rdv_paiement_envoye_le IS NOT NULL' : `${bornesPeriode(p).replace(/created_at/g, 'rdv_paiement_envoye_le')} AND rdv_paiement_envoye_le IS NOT NULL`;
+      const conditionConfirmes = p === 'tout' ? 'notifie_le IS NOT NULL' : `${bornesPeriode(p).replace(/created_at/g, 'notifie_le')} AND notifie_le IS NOT NULL`;
+      const conditionAnnules = p === 'tout' ? 'annule_le IS NOT NULL' : `${bornesPeriode(p).replace(/created_at/g, 'annule_le')} AND annule_le IS NOT NULL`;
+      const conditionIncomplets = p === 'tout' ? 'rejete_le IS NOT NULL' : `${bornesPeriode(p).replace(/created_at/g, 'rejete_le')} AND rejete_le IS NOT NULL`;
+
+      const [[{ n: envoyes }]] = await pool.query(`SELECT COUNT(*) AS n FROM mises_en_relation WHERE ${conditionEnvoyes}`);
+      const [[{ n: confirmes }]] = await pool.query(`SELECT COUNT(*) AS n FROM mises_en_relation WHERE ${conditionConfirmes}`);
+      const [[{ n: annules }]] = await pool.query(`SELECT COUNT(*) AS n FROM mises_en_relation WHERE ${conditionAnnules}`);
+      const [[{ n: incomplets }]] = await pool.query(`SELECT COUNT(*) AS n FROM mises_en_relation WHERE ${conditionIncomplets}`);
+
+      rdv[p] = { envoyes, confirmes, annules, incomplets };
+    }
+
+    // Photo instantanée (pas liée à une période) : combien de rendez-vous sont
+    // actuellement en attente de décision (payé ? incomplet ? annulé ?).
+    const [[{ n: en_attente }]] = await pool.query(
+      `SELECT COUNT(*) AS n FROM mises_en_relation WHERE statut = 'paiement_propose'`
+    );
+
+    res.json({ resume, rdv, en_attente });
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 
@@ -94,7 +120,11 @@ router.get('/transactions', async (req, res) => {
     }
 
     const [transactions] = await pool.query(
-      `SELECT * FROM transactions WHERE ${condition} ORDER BY created_at DESC`,
+      `SELECT t.*, u.email AS valide_par_email
+       FROM transactions t
+       LEFT JOIN users u ON u.id = t.valide_par
+       WHERE ${condition.replace(/created_at/g, 't.created_at')}
+       ORDER BY t.created_at DESC`,
       valeurs
     );
     const [[{ total_fcfa }]] = await pool.query(

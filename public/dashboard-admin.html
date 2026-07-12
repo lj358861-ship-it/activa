@@ -866,7 +866,8 @@ function formaterCreneauAffichage(entretienDate) {
 
 const ETIQUETTES_STATUT_SELECTION = {
   selectionne: { texte: 'En attente de rendez-vous', classe: 'etiquette-attente' },
-  notifie: { texte: 'Confirmé', classe: 'etiquette-valide' },
+  paiement_propose: { texte: 'Rdv paiement envoyé — à valider', classe: 'etiquette-attente' },
+  notifie: { texte: 'Confirmé (entretien envoyé)', classe: 'etiquette-valide' },
   rejete: { texte: 'Dossier incomplet', classe: 'etiquette-rouge' },
   annule: { texte: 'Annulé', classe: 'etiquette-rouge' }
 };
@@ -885,15 +886,26 @@ async function chargerSelections() {
             const etiquette = ETIQUETTES_STATUT_SELECTION[s.statut] || { texte: s.statut, classe: 'etiquette-attente' };
             let actions = '';
             if (s.statut === 'selectionne') {
-              actions = `<button class="btn btn-or" onclick="ouvrirModalRdvPaiement(${s.id})">Confirmer le rendez-vous</button>`;
+              actions = `<button class="btn btn-or" onclick="ouvrirModalRdvPaiement(${s.id})">Fixer le rendez-vous de paiement</button>`;
+            } else if (s.statut === 'paiement_propose') {
+              actions = `
+                <button class="btn btn-or" onclick="validerPaiement(${s.id})">Valider le paiement (envoie l'entretien)</button>
+                <button class="btn btn-contour" style="margin-top:6px;" onclick="marquerDossierIncomplet(${s.id})">Dossier incomplet</button>
+                <button class="btn btn-contour" style="margin-top:6px;" onclick="annulerRdv(${s.id})">Annuler le rendez-vous</button>
+              `;
             } else if (s.statut === 'notifie') {
               actions = `
                 <button class="btn btn-contour" onclick="marquerDossierIncomplet(${s.id})">Dossier incomplet</button>
                 <button class="btn btn-contour" style="margin-top:6px;" onclick="annulerRdv(${s.id})">Annuler le rendez-vous</button>
                 <button class="btn btn-danger" style="margin-top:6px;" onclick="supprimerSelection(${s.id})">Supprimer</button>
               `;
+            } else if (s.statut === 'rejete') {
+              actions = `
+                <button class="btn btn-or" onclick="ouvrirModalRdvPaiement(${s.id})">Nouveau rendez-vous de paiement</button>
+                <button class="btn btn-danger" style="margin-top:6px;" onclick="supprimerSelection(${s.id})">Supprimer</button>
+              `;
             } else {
-              // rejete (dossier incomplet) ou annule : dossier traité, on peut nettoyer la liste
+              // annule : dossier traité, on peut nettoyer la liste
               actions = `<button class="btn btn-danger" onclick="supprimerSelection(${s.id})">Supprimer</button>`;
             }
             return `
@@ -941,9 +953,18 @@ async function annulerRdv(id) {
 }
 
 async function marquerDossierIncomplet(id) {
-  if (!confirm('Marquer ce dossier comme incomplet ? Le candidat sera informé dans son espace personnel.')) return;
+  if (!confirm('Marquer ce dossier comme incomplet ? Le candidat sera informé dans son espace personnel. Tu pourras ensuite lui fixer un nouveau rendez-vous de paiement.')) return;
   try {
     const reponse = await appelApi(`/admin/mises-en-relation/${id}/dossier-incomplet`, { method: 'POST' });
+    alert(reponse.message);
+    chargerSelections();
+  } catch (err) { alert(err.message); }
+}
+
+async function validerPaiement(id) {
+  if (!confirm('Confirmer que le paiement a été effectué et le dossier déposé complet ? Le mail contenant le créneau d\'entretien sera envoyé au candidat.')) return;
+  try {
+    const reponse = await appelApi(`/admin/mises-en-relation/${id}/valider-paiement`, { method: 'POST' });
     alert(reponse.message);
     chargerSelections();
   } catch (err) { alert(err.message); }
@@ -978,7 +999,7 @@ async function confirmerEnvoiAvecRdv() {
   bouton.disabled = true;
   bouton.textContent = 'Envoi...';
   try {
-    const reponse = await appelApi(`/admin/mises-en-relation/${idSelectionEnCoursRdv}/notifier`, {
+    const reponse = await appelApi(`/admin/mises-en-relation/${idSelectionEnCoursRdv}/rdv-paiement`, {
       method: 'POST',
       corpsJson: { rdv_paiement_date, rdv_paiement_lieu }
     });

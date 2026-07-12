@@ -2,10 +2,13 @@ const nodemailer = require('nodemailer');
 const axios = require('axios');
 
 /*
-  Service d'envoi d'email — utilisé en SECOURS quand la notification WhatsApp
-  échoue (configuration manquante, quota dépassé, etc.).
+  Service d'envoi d'email au candidat sélectionné par une entreprise.
+  Ce mail est TOUJOURS envoyé (indépendamment du succès/échec de la notification
+  WhatsApp) car c'est lui qui porte le détail complet : créneau d'entretien,
+  frais de dossier, frais de formation à l'entretien, et liste des documents
+  à fournir (diplômes en cascade selon le niveau d'étude du candidat).
 
-  DEUX MODES POSSIBLES :
+  DEUX MODES POSSIBLES POUR L'ENVOI :
 
   1) BREVO_API_KEY (RECOMMANDÉ) — passe par l'API HTTP de Brevo (port 443,
      jamais bloqué par les hébergeurs cloud). Beaucoup plus fiable que le SMTP
@@ -24,7 +27,58 @@ const axios = require('axios');
        SMTP_EXPEDITEUR=APRJ Recrutement <votre-adresse@gmail.com>
 */
 
-function construireHtml({ nomCandidat, nomSociete, poste, creneauTexte, entretienLieu, entretienNotes }) {
+// ===== Frais facturés au candidat lors du dépôt de dossier =====
+// Modifiables ici si les tarifs changent — utilisés uniquement dans le mail
+// de confirmation de sélection ci-dessous.
+const FRAIS_DOSSIER_FCFA = 10000;
+const FRAIS_FORMATION_ENTRETIEN_FCFA = 5000;
+
+// ===== Hiérarchie des diplômes (du plus bas au plus élevé) =====
+// Doit rester dans le même ordre que les <option> du formulaire d'inscription
+// candidat (public/inscription-candidat.html, champ "niveau_etude").
+const HIERARCHIE_DIPLOMES = [
+  'CEP', 'BEPC', 'Probatoire', 'Baccalauréat', 'BTS', 'Licence', 'Master', 'Doctorat'
+];
+
+/**
+ * À partir du niveau d'étude renseigné par le candidat, renvoie la liste des
+ * diplômes à fournir : son diplôme + tous les diplômes de niveau inférieur.
+ * Ex : "BTS" -> ["BTS", "Baccalauréat", "Probatoire", "BEPC", "CEP"]
+ *      "Master" -> ["Master", "Licence", "BTS", "Baccalauréat", "Probatoire", "BEPC", "CEP"]
+ * Si le niveau n'est pas reconnu (saisie libre ancienne), on renvoie juste ce niveau.
+ */
+function diplomesRequis(niveauEtude) {
+  const index = HIERARCHIE_DIPLOMES.findIndex(
+    (d) => d.toLowerCase() === String(niveauEtude || '').trim().toLowerCase()
+  );
+  if (index === -1) return niveauEtude ? [niveauEtude] : [];
+  return HIERARCHIE_DIPLOMES.slice(0, index + 1).reverse();
+}
+
+/**
+ * Liste des documents à fournir lors du dépôt de dossier, en incluant les
+ * copies légalisées des diplômes en cascade (voir diplomesRequis ci-dessus).
+ */
+function construireListeDocuments(niveauEtude) {
+  const diplomes = diplomesRequis(niveauEtude);
+  const documentsGeneraux = [
+    'Une demande manuscrite adressée à l\'entreprise',
+    'Un Curriculum Vitae (CV) actualisé',
+    'Une photocopie légalisée de la Carte Nationale d\'Identité (CNI)',
+    'Un extrait d\'acte de naissance',
+    '04 photos d\'identité',
+    'Un certificat médical de moins de 3 mois',
+    'Un casier judiciaire (bulletin n°3) de moins de 3 mois'
+  ];
+  const documentsDiplomes = diplomes.map((d) => `Une copie légalisée du diplôme : ${d}`);
+  return [...documentsGeneraux, ...documentsDiplomes];
+}
+
+function construireHtml({
+  nomCandidat, nomSociete, poste, creneauTexte, entretienLieu, entretienNotes, niveauEtude,
+  rdvPaiementTexte, rdvPaiementLieu
+}) {
+  const documents = construireListeDocuments(niveauEtude);
   return `
     <p>Bonjour ${nomCandidat},</p>
     <p>L'entreprise <strong>${nomSociete}</strong> a sélectionné ton profil pour le poste
@@ -34,6 +88,22 @@ function construireHtml({ nomCandidat, nomSociete, poste, creneauTexte, entretie
       <strong>Lieu :</strong> ${entretienLieu || 'à confirmer'}<br>
       ${entretienNotes ? `<strong>Informations complémentaires :</strong> ${entretienNotes}<br>` : ''}
     </p>
+    <div style="border:2px solid #d4a017; background:#fff8e6; padding:14px 16px; margin:16px 0; border-radius:6px;">
+      <p style="margin:0 0 8px 0;"><strong>📌 Rendez-vous de paiement et dépôt de dossier</strong></p>
+      <p style="margin:0;">
+        <strong>Date :</strong> ${rdvPaiementTexte || 'à confirmer'}<br>
+        <strong>Lieu :</strong> ${rdvPaiementLieu || 'à confirmer'}
+      </p>
+    </div>
+    <p>Merci de te présenter avec ton dossier complet à ce rendez-vous. Les frais suivants sont à régler ce jour-là :</p>
+    <ul>
+      <li><strong>Frais de dossier :</strong> ${FRAIS_DOSSIER_FCFA.toLocaleString('fr-FR')} FCFA</li>
+      <li><strong>Frais de formation à l'entretien :</strong> ${FRAIS_FORMATION_ENTRETIEN_FCFA.toLocaleString('fr-FR')} FCFA</li>
+    </ul>
+    <p><strong>Documents à fournir</strong> ${niveauEtude ? `(niveau d'étude renseigné : ${niveauEtude})` : ''} :</p>
+    <ul>
+      ${documents.map((d) => `<li>${d}</li>`).join('\n      ')}
+    </ul>
     <p>Tu vas être recontacté(e) prochainement par l'équipe APRJ ou directement par l'entreprise.</p>
     <p>Bonne chance !<br>L'équipe APRJ</p>
   `;
@@ -90,19 +160,24 @@ async function envoyerViaSmtp({ emailCandidat, sujet, html }) {
 }
 
 /**
- * Envoie au candidat un email l'informant de sa sélection, avec le créneau d'entretien.
- * Utilisée automatiquement en secours si l'envoi WhatsApp échoue.
+ * Envoie au candidat un email l'informant de sa sélection : créneau d'entretien,
+ * frais de dossier et de formation à l'entretien, et liste des documents à
+ * fournir (diplômes en cascade selon niveauEtude).
  * Utilise l'API Brevo si BREVO_API_KEY est défini (recommandé), sinon le SMTP classique.
  */
 async function envoyerEmailSelection({
   emailCandidat, nomCandidat, nomSociete, poste,
-  creneauTexte, entretienLieu, entretienNotes
+  creneauTexte, entretienLieu, entretienNotes, niveauEtude,
+  rdvPaiementTexte, rdvPaiementLieu
 }) {
   if (!emailCandidat) {
     return { envoye: false, raison: 'email_manquant' };
   }
 
-  const html = construireHtml({ nomCandidat, nomSociete, poste, creneauTexte, entretienLieu, entretienNotes });
+  const html = construireHtml({
+    nomCandidat, nomSociete, poste, creneauTexte, entretienLieu, entretienNotes, niveauEtude,
+    rdvPaiementTexte, rdvPaiementLieu
+  });
   const sujet = `Tu as été sélectionné(e) par ${nomSociete} !`;
 
   if (process.env.BREVO_API_KEY) {
@@ -127,4 +202,4 @@ async function envoyerEmailSelection({
   return { envoye: false, raison: 'configuration_incomplete' };
 }
 
-module.exports = { envoyerEmailSelection };
+module.exports = { envoyerEmailSelection, diplomesRequis, FRAIS_DOSSIER_FCFA, FRAIS_FORMATION_ENTRETIEN_FCFA };

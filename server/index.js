@@ -10,6 +10,7 @@ const candidatRoutes = require('./routes/candidat');
 const employeurRoutes = require('./routes/employeur');
 const rechercheRoutes = require('./routes/recherche');
 const adminRoutes = require('./routes/admin');
+const financesRoutes = require('./routes/finances');
 const contenuPublicRoutes = require('./routes/contenu-public');
 const contactRoutes = require('./routes/contact');
 
@@ -40,6 +41,7 @@ app.use('/api/candidats', candidatRoutes);
 app.use('/api/employeurs', employeurRoutes);
 app.use('/api/recherche', rechercheRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/finances', financesRoutes);
 app.use('/api', contenuPublicRoutes);
 app.use('/api/contact', contactRoutes);
 

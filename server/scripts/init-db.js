@@ -102,6 +102,20 @@ async function initialiserBaseDeDonnees() {
     console.log('[init-db] Statut "paiement_propose" ajouté à mises_en_relation.');
   }
 
+  // Migration : ajoute les colonnes diplome_path / cni_path aux candidats
+  // (nécessaire pour les bases créées avant l'ajout de ces documents obligatoires).
+  const [colonnesDocs] = await connection.query(
+    `SELECT COUNT(*) AS n FROM information_schema.columns
+     WHERE table_schema = ? AND table_name = 'candidats' AND column_name = 'diplome_path'`,
+    [database]
+  );
+  if (colonnesDocs[0].n === 0) {
+    await connection.query(
+      'ALTER TABLE candidats ADD COLUMN diplome_path VARCHAR(255) NULL AFTER photo_path, ADD COLUMN cni_path VARCHAR(255) NULL AFTER diplome_path'
+    );
+    console.log('[init-db] Colonnes diplome_path/cni_path ajoutées à la table candidats.');
+  }
+
   // Créer le compte admin par défaut s'il n'existe pas
   const [rows] = await connection.query('SELECT id FROM users WHERE role = "admin" LIMIT 1');
   if (rows.length === 0) {

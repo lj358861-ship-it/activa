@@ -145,6 +145,25 @@ async function initialiserBaseDeDonnees() {
     console.log(`[init-db] Identifiant code_candidat généré pour ${candidatsSansCode.length} candidat(s) existant(s).`);
   }
 
+  // Migration : ajoute des horodatages dédiés (rdv de paiement envoyé, annulation,
+  // dossier rejeté) à mises_en_relation, pour que la page finances puisse compter
+  // précisément le nombre de rendez-vous envoyés/confirmés/annulés/incomplets par
+  // période (jour/semaine/mois/année), et pas seulement les montants encaissés.
+  const [colonnesEvenements] = await connection.query(
+    `SELECT COUNT(*) AS n FROM information_schema.columns
+     WHERE table_schema = ? AND table_name = 'mises_en_relation' AND column_name = 'rdv_paiement_envoye_le'`,
+    [database]
+  );
+  if (colonnesEvenements[0].n === 0) {
+    await connection.query(
+      `ALTER TABLE mises_en_relation
+       ADD COLUMN rdv_paiement_envoye_le TIMESTAMP NULL,
+       ADD COLUMN annule_le TIMESTAMP NULL,
+       ADD COLUMN rejete_le TIMESTAMP NULL`
+    );
+    console.log('[init-db] Colonnes rdv_paiement_envoye_le/annule_le/rejete_le ajoutées à mises_en_relation.');
+  }
+
   // Créer le compte admin par défaut s'il n'existe pas
   const [rows] = await connection.query('SELECT id FROM users WHERE role = "admin" LIMIT 1');
   if (rows.length === 0) {

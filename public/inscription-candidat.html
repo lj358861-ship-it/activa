@@ -85,8 +85,8 @@
         <input type="text" id="nom_complet" name="nom_complet" required>
       </div>
       <div class="champ">
-        <label for="ville">Ville</label>
-        <input type="text" id="ville" name="ville">
+        <label for="ville">Ville *</label>
+        <input type="text" id="ville" name="ville" required>
       </div>
 
       <h3 style="margin-top:28px;">Parcours</h3>
@@ -116,16 +116,16 @@
         </div>
       </div>
       <div class="champ">
-        <label for="parcours_pedagogique">Parcours pédagogique</label>
-        <textarea id="parcours_pedagogique" name="parcours_pedagogique" rows="3" placeholder="Diplômes, écoles, formations suivies..."></textarea>
+        <label for="parcours_pedagogique">Parcours pédagogique *</label>
+        <textarea id="parcours_pedagogique" name="parcours_pedagogique" rows="3" placeholder="Diplômes, écoles, formations suivies..." required></textarea>
       </div>
       <div class="champ">
-        <label for="parcours_professionnel">Parcours professionnel</label>
-        <textarea id="parcours_professionnel" name="parcours_professionnel" rows="3" placeholder="Expériences, stages, postes occupés..."></textarea>
+        <label for="parcours_professionnel">Parcours professionnel (optionnel)</label>
+        <textarea id="parcours_professionnel" name="parcours_professionnel" rows="3" placeholder="Expériences, stages, postes occupés... (laisse vide si tu n'as pas encore d'expérience)"></textarea>
       </div>
       <div class="champ">
-        <label for="atouts">Tes atouts</label>
-        <textarea id="atouts" name="atouts" rows="2" placeholder="Compétences, qualités, langues..."></textarea>
+        <label for="atouts">Tes atouts *</label>
+        <textarea id="atouts" name="atouts" rows="2" placeholder="Compétences, qualités, langues..." required></textarea>
       </div>
 
       <h3 style="margin-top:28px;">Documents</h3>
@@ -136,9 +136,9 @@
         </div>
       </div>
       <div class="champ">
-        <label for="photo">Photo (optionnel)</label>
+        <label for="photo">Photo *</label>
         <div class="champ-fichier">
-          <input type="file" id="photo" name="photo" accept=".jpg,.jpeg,.png">
+          <input type="file" id="photo" name="photo" accept=".jpg,.jpeg,.png" required>
         </div>
       </div>
       <div class="champ">

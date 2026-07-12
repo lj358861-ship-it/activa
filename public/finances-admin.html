@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caisse & finances — APRJ</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/css/style.css?v=2">
+<style>
+  .pin-ecran { min-height: 70vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .pin-carte { max-width: 360px; width: 100%; text-align: center; }
+  .pin-points { display: flex; gap: 12px; justify-content: center; margin: 22px 0; }
+  .pin-point { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--marine); background: transparent; transition: background 0.15s ease; }
+  .pin-point.rempli { background: var(--marine); }
+  .pin-clavier { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 260px; margin: 0 auto; }
+  .pin-touche { padding: 16px 0; font-size: 1.2rem; font-family: 'Fraunces', serif; font-weight: 600; color: var(--marine); background: var(--blanc); border: 1px solid var(--bordure); border-radius: var(--rayon); cursor: pointer; transition: background 0.15s ease, transform 0.1s ease; }
+  .pin-touche:hover { background: var(--ivoire); }
+  .pin-touche:active { transform: scale(0.96); }
+  .pin-touche.pin-effacer { font-size: 0.85rem; }
+  .periode-boutons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+  .periode-btn { padding: 8px 16px; border-radius: 20px; border: 1.5px solid var(--marine); background: transparent; color: var(--marine); font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
+  .periode-btn.actif, .periode-btn:hover { background: var(--marine); color: var(--blanc); }
+  .plage-perso { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 24px; }
+  .plage-perso .champ { margin-bottom: 0; }
+  .graphique-barres { display: flex; align-items: flex-end; gap: 3px; height: 160px; background: var(--blanc); border: 1px solid var(--bordure); border-radius: var(--rayon); padding: 16px 12px 8px; margin-bottom: 28px; overflow-x: auto; }
+  .barre-jour { flex: 1 0 auto; min-width: 6px; background: var(--or); border-radius: 3px 3px 0 0; position: relative; transition: background 0.15s ease; }
+  .barre-jour:hover { background: var(--marine); }
+  .barre-jour:hover::after {
+    content: attr(data-info); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+    background: var(--marine); color: var(--blanc); font-size: 0.7rem; padding: 4px 8px; border-radius: 6px;
+    white-space: nowrap; margin-bottom: 4px; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="aprjIntro" class="aprj-intro">
+  <div class="aprj-intro-anneaux"><span></span><span></span><span></span><span></span></div>
+  <div class="aprj-intro-lueur"></div>
+  <img src="/logo-embleme.png" alt="Logo APRJ" class="aprj-intro-logo">
+  <div class="aprj-intro-texte">
+    <strong>APRJ</strong>
+    <span>Tenons-nous ensemble pour construire un lendemain meilleur</span>
+  </div>
+</div>
+<script>
+(function(){
+  var overlay = document.getElementById('aprjIntro');
+  if (!overlay) return;
+  if (sessionStorage.getItem('aprj_intro_vu')) { overlay.style.display = 'none'; return; }
+  sessionStorage.setItem('aprj_intro_vu', '1');
+  setTimeout(function(){
+    overlay.classList.add('aprj-intro-sortie');
+    setTimeout(function(){ if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 700);
+  }, 1500);
+})();
+</script>
+
+<header class="entete">
+  <div class="entete-bandeau">
+    <a href="/" class="marque"><img src="/logo-embleme.png" alt="Logo APRJ" class="marque-logo"><span>APRJ<small>CAISSE & FINANCES</small></span></a>
+    <button class="bouton-burger" id="boutonBurger" aria-label="Ouvrir le menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="entete-actions" id="menuMobile">
+      <nav class="nav-liens"><a href="/dashboard-admin.html">← Retour au tableau de bord</a></nav>
+      <a href="#" class="btn btn-contour-clair" onclick="deconnecter()">Se déconnecter</a>
+    </div>
+  </div>
+</header>
+
+<!-- Écran de verrouillage PIN -->
+<div id="ecranPin" class="pin-ecran">
+  <div class="carte-formulaire pin-carte">
+    <h2 style="margin-bottom:6px;">Accès protégé</h2>
+    <p style="color:var(--ardoise-douce); font-size:0.9rem; margin-bottom:0;">Saisis le code PIN pour consulter la caisse et les finances.</p>
+    <div class="pin-points" id="pinPoints">
+      <div class="pin-point"></div><div class="pin-point"></div><div class="pin-point"></div><div class="pin-point"></div>
+    </div>
+    <div id="pinErreur" style="min-height:20px; color:var(--rouge); font-size:0.85rem; margin-bottom:10px;"></div>
+    <div class="pin-clavier" id="pinClavier">
+      <button type="button" class="pin-touche" data-chiffre="1">1</button>
+      <button type="button" class="pin-touche" data-chiffre="2">2</button>
+      <button type="button" class="pin-touche" data-chiffre="3">3</button>
+      <button type="button" class="pin-touche" data-chiffre="4">4</button>
+      <button type="button" class="pin-touche" data-chiffre="5">5</button>
+      <button type="button" class="pin-touche" data-chiffre="6">6</button>
+      <button type="button" class="pin-touche" data-chiffre="7">7</button>
+      <button type="button" class="pin-touche" data-chiffre="8">8</button>
+      <button type="button" class="pin-touche" data-chiffre="9">9</button>
+      <button type="button" class="pin-touche pin-effacer" id="pinEffacer">Effacer</button>
+      <button type="button" class="pin-touche" data-chiffre="0">0</button>
+      <button type="button" class="pin-touche" id="pinValider">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Contenu financier (masqué tant que le PIN n'est pas validé) -->
+<div class="conteneur tableau-bord" id="contenuFinances" style="display:none;">
+  <div class="tb-entete"><h2 style="margin:0;">Caisse & finances</h2></div>
+  <p style="color:var(--ardoise-douce); font-size:0.9rem; margin-top:-14px; margin-bottom:24px;">
+    Chaque ligne correspond à un paiement de dossier validé (frais de dossier + frais de formation à l'entretien). Alimenté automatiquement, aucune saisie manuelle.
+  </p>
+
+  <div class="tb-stats" id="statsFinances"></div>
+
+  <h3 style="margin-top:8px;">Évolution (30 derniers jours)</h3>
+  <div class="graphique-barres" id="graphiqueEvolution"></div>
+
+  <h3>Détail des transactions</h3>
+  <div class="periode-boutons" id="periodeBoutons">
+    <button type="button" class="periode-btn actif" data-periode="jour">Aujourd'hui</button>
+    <button type="button" class="periode-btn" data-periode="semaine">Cette semaine</button>
+    <button type="button" class="periode-btn" data-periode="mois">Ce mois-ci</button>
+    <button type="button" class="periode-btn" data-periode="annee">Cette année</button>
+    <button type="button" class="periode-btn" data-periode="tout">Depuis toujours</button>
+  </div>
+  <div class="plage-perso">
+    <div class="champ"><label>Du</label><input type="date" id="dateDebutPerso"></div>
+    <div class="champ"><label>Au</label><input type="date" id="dateFinPerso"></div>
+    <button type="button" class="btn btn-contour" onclick="appliquerPlagePerso()" style="height:44px;">Filtrer sur cette plage</button>
+  </div>
+
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <div id="totalPeriode" style="font-family:'Fraunces', serif; font-size:1.3rem; color:var(--marine); font-weight:600;"></div>
+  </div>
+  <div id="listeTransactions"></div>
+</div>
+
+<footer class="pied"><div class="conteneur">&copy; 2026 Association A.P.R.J. — Tenons-nous ensemble pour construire un lendemain meilleur.</div></footer>
+
+<script src="/js/commun.js"></script>
+<script>
+exigerRole('admin');
+
+/* ===== Gestion du jeton de session "finances" (distinct du token de connexion admin) ===== */
+function obtenirJetonFinances() { return sessionStorage.getItem('activa_finance_token'); }
+function enregistrerJetonFinances(t) { sessionStorage.setItem('activa_finance_token', t); }
+function oublierJetonFinances() { sessionStorage.removeItem('activa_finance_token'); }
+
+async function appelApiFinances(chemin, options = {}) {
+  const entetes = options.entetes || {};
+  const tokenAdmin = obtenirToken();
+  if (tokenAdmin) entetes['Authorization'] = `Bearer ${tokenAdmin}`;
+  const jetonFinances = obtenirJetonFinances();
+  if (jetonFinances) entetes['X-Finance-Token'] = jetonFinances;
+
+  const config = { method: options.method || 'GET', headers: entetes };
+  if (options.corpsJson) {
+    entetes['Content-Type'] = 'application/json';
+    config.body = JSON.stringify(options.corpsJson);
+  }
+  const reponse = await fetch(`/api/finances${chemin}`, config);
+  const donnees = await reponse.json().catch(() => ({}));
+  if (!reponse.ok) {
+    if (donnees.pin_requis) { oublierJetonFinances(); afficherEcranPin(); }
+    throw new Error(donnees.erreur || 'Une erreur est survenue.');
+  }
+  return donnees;
+}
+
+/* ===== Écran PIN ===== */
+let saisiePin = '';
+
+function afficherEcranPin() {
+  document.getElementById('ecranPin').style.display = 'flex';
+  document.getElementById('contenuFinances').style.display = 'none';
+  saisiePin = '';
+  majPointsPin();
+}
+
+function afficherContenuFinances() {
+  document.getElementById('ecranPin').style.display = 'none';
+  document.getElementById('contenuFinances').style.display = 'block';
+  chargerToutesLesDonnees();
+}
+
+function majPointsPin() {
+  document.querySelectorAll('.pin-point').forEach((pt, i) => pt.classList.toggle('rempli', i < saisiePin.length));
+}
+
+document.querySelectorAll('.pin-touche[data-chiffre]').forEach((bouton) => {
+  bouton.addEventListener('click', () => {
+    if (saisiePin.length >= 4) return;
+    saisiePin += bouton.dataset.chiffre;
+    majPointsPin();
+    if (saisiePin.length === 4) validerPin();
+  });
+});
+document.getElementById('pinEffacer').addEventListener('click', () => {
+  saisiePin = saisiePin.slice(0, -1);
+  majPointsPin();
+});
+document.getElementById('pinValider').addEventListener('click', validerPin);
+
+async function validerPin() {
+  const erreurZone = document.getElementById('pinErreur');
+  erreurZone.textContent = '';
+  if (!saisiePin) { erreurZone.textContent = 'Merci de saisir le code PIN.'; return; }
+  try {
+    const reponse = await appelApiFinances('/deverrouiller', { method: 'POST', corpsJson: { pin: saisiePin } });
+    enregistrerJetonFinances(reponse.token);
+    afficherContenuFinances();
+  } catch (err) {
+    erreurZone.textContent = err.message;
+    saisiePin = '';
+    majPointsPin();
+  }
+}
+
+/* ===== Chargement des données ===== */
+function formaterFcfa(n) { return `${Number(n || 0).toLocaleString('fr-FR')} FCFA`; }
+
+async function chargerToutesLesDonnees() {
+  await Promise.all([chargerResume(), chargerEvolution(), chargerTransactions('jour')]);
+}
+
+async function chargerResume() {
+  const conteneur = document.getElementById('statsFinances');
+  try {
+    const { resume } = await appelApiFinances('/resume');
+    conteneur.innerHTML = `
+      <div class="tb-stat"><div class="valeur">${formaterFcfa(resume.jour.total_fcfa)}</div><div class="label">Aujourd'hui (${resume.jour.nombre} paiement${resume.jour.nombre > 1 ? 's' : ''})</div></div>
+      <div class="tb-stat"><div class="valeur">${formaterFcfa(resume.semaine.total_fcfa)}</div><div class="label">Cette semaine (${resume.semaine.nombre})</div></div>
+      <div class="tb-stat"><div class="valeur">${formaterFcfa(resume.mois.total_fcfa)}</div><div class="label">Ce mois-ci (${resume.mois.nombre})</div></div>
+      <div class="tb-stat"><div class="valeur">${formaterFcfa(resume.annee.total_fcfa)}</div><div class="label">Cette année (${resume.annee.nombre})</div></div>
+      <div class="tb-stat"><div class="valeur">${formaterFcfa(resume.tout.total_fcfa)}</div><div class="label">Depuis toujours (${resume.tout.nombre})</div></div>
+    `;
+  } catch (err) { if (!err.message.includes('PIN')) conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+async function chargerEvolution() {
+  const conteneur = document.getElementById('graphiqueEvolution');
+  try {
+    const { evolution } = await appelApiFinances('/evolution?jours=30');
+    if (!evolution.length) { conteneur.innerHTML = '<p style="color:var(--ardoise-douce); font-size:0.85rem;">Aucune donnée pour le moment.</p>'; return; }
+    const maxTotal = Math.max(...evolution.map((j) => j.total_fcfa), 1);
+    conteneur.innerHTML = evolution.map((j) => {
+      const hauteur = Math.max((j.total_fcfa / maxTotal) * 100, j.total_fcfa > 0 ? 4 : 1);
+      const dateAffichee = new Date(j.jour).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
+      return `<div class="barre-jour" style="height:${hauteur}%;" data-info="${dateAffichee} — ${formaterFcfa(j.total_fcfa)}"></div>`;
+    }).join('');
+  } catch (err) { if (!err.message.includes('PIN')) conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+let periodeActive = 'jour';
+
+document.querySelectorAll('.periode-btn').forEach((bouton) => {
+  bouton.addEventListener('click', () => {
+    document.querySelectorAll('.periode-btn').forEach((b) => b.classList.remove('actif'));
+    bouton.classList.add('actif');
+    document.getElementById('dateDebutPerso').value = '';
+    document.getElementById('dateFinPerso').value = '';
+    chargerTransactions(bouton.dataset.periode);
+  });
+});
+
+function appliquerPlagePerso() {
+  const debut = document.getElementById('dateDebutPerso').value;
+  const fin = document.getElementById('dateFinPerso').value;
+  if (!debut || !fin) { alert('Merci de choisir une date de début ET de fin.'); return; }
+  document.querySelectorAll('.periode-btn').forEach((b) => b.classList.remove('actif'));
+  chargerTransactions(null, debut, fin);
+}
+
+async function chargerTransactions(periode, debut, fin) {
+  const conteneur = document.getElementById('listeTransactions');
+  const totalZone = document.getElementById('totalPeriode');
+  conteneur.innerHTML = '<p>Chargement...</p>';
+  try {
+    let chemin = '/transactions?';
+    if (debut && fin) chemin += `debut=${debut}&fin=${fin}`;
+    else chemin += `periode=${periode || 'jour'}`;
+
+    const { transactions, total_fcfa, nombre } = await appelApiFinances(chemin);
+    totalZone.textContent = `Total : ${formaterFcfa(total_fcfa)} — ${nombre} paiement${nombre > 1 ? 's' : ''}`;
+
+    if (!transactions.length) { conteneur.innerHTML = '<p>Aucune transaction sur cette période.</p>'; return; }
+    conteneur.innerHTML = `
+      <table class="liste">
+        <thead><tr><th>Date</th><th>Candidat</th><th>Poste</th><th>Entreprise</th><th>Dossier</th><th>Formation</th><th>Total</th></tr></thead>
+        <tbody>
+          ${transactions.map((t) => `
+            <tr>
+              <td>${new Date(t.created_at).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</td>
+              <td>${t.candidat_nom || '—'}${t.code_candidat ? `<br><span style="font-size:0.78rem; color:var(--ardoise-douce);">${t.code_candidat}</span>` : ''}</td>
+              <td>${t.poste || '—'}</td>
+              <td>${t.nom_societe || '—'}</td>
+              <td>${formaterFcfa(t.montant_dossier_fcfa)}</td>
+              <td>${formaterFcfa(t.montant_formation_fcfa)}</td>
+              <td><strong>${formaterFcfa(t.montant_total_fcfa)}</strong></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+  } catch (err) { if (!err.message.includes('PIN')) conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+/* ===== Démarrage : ré-utilise le jeton finances s'il est encore valide (même onglet, session en cours) ===== */
+(async function demarrer() {
+  if (obtenirJetonFinances()) {
+    try {
+      await appelApiFinances('/resume');
+      afficherContenuFinances();
+      return;
+    } catch (e) { /* jeton expiré : on retombe sur l'écran PIN ci-dessous */ }
+  }
+  afficherEcranPin();
+})();
+</script>
+</body>
+</html>

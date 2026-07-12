@@ -86,6 +86,22 @@ async function initialiserBaseDeDonnees() {
     console.log('[init-db] Colonnes rdv_paiement_date/rdv_paiement_lieu ajoutées + statuts rejete/annule.');
   }
 
+  // Migration : ajoute le statut intermédiaire "paiement_propose" (rendez-vous de
+  // paiement/dépôt de dossier fixé par l'admin et 1er mail envoyé, en attente de
+  // validation par l'admin avant l'envoi du 2e mail contenant le créneau d'entretien).
+  const [statutColonne] = await connection.query(
+    `SELECT COLUMN_TYPE AS type FROM information_schema.columns
+     WHERE table_schema = ? AND table_name = 'mises_en_relation' AND column_name = 'statut'`,
+    [database]
+  );
+  if (statutColonne.length && !statutColonne[0].type.includes('paiement_propose')) {
+    await connection.query(
+      `ALTER TABLE mises_en_relation
+       MODIFY COLUMN statut ENUM('propose', 'selectionne', 'paiement_propose', 'notifie', 'rejete', 'annule') DEFAULT 'propose'`
+    );
+    console.log('[init-db] Statut "paiement_propose" ajouté à mises_en_relation.');
+  }
+
   // Créer le compte admin par défaut s'il n'existe pas
   const [rows] = await connection.query('SELECT id FROM users WHERE role = "admin" LIMIT 1');
   if (rows.length === 0) {

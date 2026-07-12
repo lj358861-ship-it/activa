@@ -141,6 +141,21 @@
           <input type="file" id="photo" name="photo" accept=".jpg,.jpeg,.png">
         </div>
       </div>
+      <div class="champ">
+        <label for="diplome">Diplôme scanné (PDF, JPG, PNG — 5 Mo max) *</label>
+        <div class="champ-fichier">
+          <input type="file" id="diplome" name="diplome" accept=".pdf,.jpg,.jpeg,.png" required>
+        </div>
+      </div>
+      <div class="champ">
+        <label for="cni">Carte Nationale d'Identité (CNI) scannée (PDF, JPG, PNG — 5 Mo max) *</label>
+        <div class="champ-fichier">
+          <input type="file" id="cni" name="cni" accept=".pdf,.jpg,.jpeg,.png" required>
+        </div>
+        <p style="font-size:0.8rem; color:var(--ardoise-douce); margin-top:6px;">
+          Ce document sert uniquement à la vérification de ton identité par l'équipe APRJ. Il n'est jamais transmis aux entreprises.
+        </p>
+      </div>
 
       <button type="submit" class="btn btn-or btn-large btn-bloc" id="btnEnvoyer">Envoyer mon profil</button>
     </form>
@@ -165,7 +180,10 @@ document.getElementById('formCandidat').addEventListener('submit', async (e) => 
     const resultat = await reponse.json();
     if (!reponse.ok) throw new Error(resultat.erreur || 'Erreur lors de l\'inscription.');
 
-    afficherMessage(zone, 'Ton profil a été enregistré avec succès. L\'Association A.P.R.J. a été notifiée. Tu peux être contacté(e) prochainement pour la suite du parcours.', 'succes');
+    const messageId = resultat.candidat_id
+      ? ` Ton numéro d'identifiant candidat est le <strong>#${resultat.candidat_id}</strong> — garde-le, il permet à l'APRJ de retrouver rapidement ton dossier.`
+      : '';
+    afficherMessage(zone, 'Ton profil a été enregistré avec succès. L\'Association A.P.R.J. a été notifiée. Tu peux être contacté(e) prochainement pour la suite du parcours.' + messageId, 'succes');
     e.target.reset();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err) {

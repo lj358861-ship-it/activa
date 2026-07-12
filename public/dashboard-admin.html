@@ -74,7 +74,29 @@
 
   <div id="vueAttente"></div>
   <div id="vueEmployeurs" style="display:none;"></div>
-  <div id="vueCandidats" style="display:none;"></div>
+  <div id="vueCandidats" style="display:none;">
+    <div class="carte-formulaire compact" style="max-width:520px; margin:0 0 18px;">
+      <label for="rechercheCandidatId" style="font-weight:600; display:block; margin-bottom:8px;">Rechercher un candidat par numéro d'identifiant</label>
+      <div style="display:flex; gap:10px;">
+        <input type="number" id="rechercheCandidatId" min="1" placeholder="Ex : 42" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault(); rechercherCandidatParId();}">
+        <button type="button" class="btn btn-or" onclick="rechercherCandidatParId()">Rechercher</button>
+        <button type="button" class="btn btn-contour" onclick="reinitialiserRechercheCandidats()">Réinitialiser</button>
+      </div>
+    </div>
+    <div id="resultatRechercheCandidat"></div>
+    <div id="listeCandidatsConteneur"></div>
+  </div>
+
+  <!-- Modal fiche détaillée d'un candidat -->
+  <div id="modalFicheCandidat" style="display:none; position:fixed; inset:0; background:rgba(11,20,38,0.55); z-index:9999; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto;">
+    <div class="carte-formulaire" style="max-width:640px; width:100%; margin:20px 0;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 style="margin:0;">Fiche candidat</h3>
+        <button type="button" class="btn btn-contour" onclick="fermerFicheCandidat()">Fermer</button>
+      </div>
+      <div id="contenuFicheCandidat"></div>
+    </div>
+  </div>
   <div id="vueDemandes" style="display:none;"></div>
   <div id="vueMatching" style="display:none;">
     <div class="carte-formulaire compact" style="max-width:520px;">
@@ -660,31 +682,109 @@ async function supprimerEmployeur(id) {
   } catch (err) { alert(err.message); }
 }
 
+let tousLesCandidats = [];
+
 async function chargerCandidats() {
-  const conteneur = document.getElementById('vueCandidats');
+  const conteneur = document.getElementById('listeCandidatsConteneur');
   conteneur.innerHTML = '<p>Chargement...</p>';
+  document.getElementById('resultatRechercheCandidat').innerHTML = '';
+  document.getElementById('rechercheCandidatId').value = '';
   try {
     const { candidats } = await appelApi('/admin/candidats');
-    conteneur.innerHTML = `
-      <table class="liste">
-        <thead><tr><th>Nom</th><th>Téléphone</th><th>Domaine</th><th>Niveau</th><th>Ville</th><th>WhatsApp envoyé</th><th>CV</th><th></th></tr></thead>
-        <tbody>
-          ${candidats.map((c) => `
-            <tr>
-              <td>${c.nom_complet}</td>
-              <td>${c.telephone ? c.telephone : '<span style="color:var(--rouge);">Non renseigné</span>'}</td>
-              <td>${c.domaine}</td>
-              <td>${c.niveau_etude}</td>
-              <td>${c.ville || '—'}</td>
-              <td>${c.whatsapp_envoye ? '✅' : '—'}</td>
-              <td>${c.cv_path ? `<a href="/uploads/${c.cv_path}" target="_blank">Voir</a>` : '—'}</td>
-              <td><button class="btn btn-danger" onclick="supprimerCandidat(${c.id})">Supprimer</button></td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    `;
+    tousLesCandidats = candidats;
+    afficherTableauCandidats(candidats, conteneur);
   } catch (err) { conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
+}
+
+function afficherTableauCandidats(candidats, conteneur) {
+  if (!candidats.length) {
+    conteneur.innerHTML = '<p>Aucun candidat trouvé.</p>';
+    return;
+  }
+  conteneur.innerHTML = `
+    <table class="liste">
+      <thead><tr><th>ID</th><th>Nom</th><th>Téléphone</th><th>Domaine</th><th>Niveau</th><th>Ville</th><th>WhatsApp envoyé</th><th></th></tr></thead>
+      <tbody>
+        ${candidats.map((c) => `
+          <tr>
+            <td><strong>#${c.id}</strong></td>
+            <td>${c.nom_complet}</td>
+            <td>${c.telephone ? c.telephone : '<span style="color:var(--rouge);">Non renseigné</span>'}</td>
+            <td>${c.domaine}</td>
+            <td>${c.niveau_etude}</td>
+            <td>${c.ville || '—'}</td>
+            <td>${c.whatsapp_envoye ? '✅' : '—'}</td>
+            <td style="white-space:nowrap;">
+              <button class="btn btn-marine" onclick="ouvrirFicheCandidat(${c.id})">Voir la fiche</button>
+              <button class="btn btn-danger" onclick="supprimerCandidat(${c.id})">Supprimer</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+async function rechercherCandidatParId() {
+  const zone = document.getElementById('resultatRechercheCandidat');
+  const valeur = document.getElementById('rechercheCandidatId').value.trim();
+  if (!valeur) { reinitialiserRechercheCandidats(); return; }
+  zone.innerHTML = '<p>Recherche...</p>';
+  document.getElementById('listeCandidatsConteneur').innerHTML = '';
+  try {
+    const { candidat } = await appelApi(`/admin/candidats/${valeur}`);
+    zone.innerHTML = '';
+    afficherTableauCandidats([candidat], document.getElementById('listeCandidatsConteneur'));
+  } catch (err) {
+    zone.innerHTML = `<div class="message message-erreur">${err.message}</div>`;
+  }
+}
+
+function reinitialiserRechercheCandidats() {
+  document.getElementById('rechercheCandidatId').value = '';
+  document.getElementById('resultatRechercheCandidat').innerHTML = '';
+  afficherTableauCandidats(tousLesCandidats, document.getElementById('listeCandidatsConteneur'));
+}
+
+function ouvrirFicheCandidat(id) {
+  const candidat = tousLesCandidats.find((c) => c.id === id) || tousLesCandidats.find((c) => String(c.id) === String(id));
+  if (candidat) { afficherFicheCandidat(candidat); return; }
+  // Cas où la fiche vient d'un résultat de recherche par id (pas forcément dans tousLesCandidats)
+  appelApi(`/admin/candidats/${id}`).then(({ candidat }) => afficherFicheCandidat(candidat)).catch((err) => alert(err.message));
+}
+
+function afficherFicheCandidat(c) {
+  const contenu = document.getElementById('contenuFicheCandidat');
+  contenu.innerHTML = `
+    <div style="display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; margin-bottom:18px;">
+      ${c.photo_path
+        ? `<img src="/uploads/${c.photo_path}" style="width:160px; height:160px; border-radius:12px; object-fit:cover; border:1px solid var(--bordure);">`
+        : `<div style="width:160px; height:160px; border-radius:12px; background:var(--ivoire); display:flex; align-items:center; justify-content:center; font-size:3rem;">👤</div>`}
+      <div style="flex:1; min-width:220px;">
+        <span class="etiquette etiquette-valide" style="margin-bottom:8px; display:inline-block;">ID #${c.id}</span>
+        <h2 style="margin:0 0 6px;">${c.nom_complet}</h2>
+        <p style="margin:0 0 4px;">${c.domaine} — ${c.niveau_etude}</p>
+        <p style="margin:0 0 4px; color:var(--ardoise-douce);">${c.ville || 'Ville non renseignée'}</p>
+        <p style="margin:0 0 4px;">📞 ${c.telephone || '—'} &nbsp;|&nbsp; ✉️ ${c.email || '—'}</p>
+        <p style="margin:0;">WhatsApp APRJ envoyé : ${c.whatsapp_envoye ? '✅ Oui' : '— Non'}</p>
+      </div>
+    </div>
+    ${c.parcours_pedagogique ? `<p><strong>Parcours pédagogique</strong><br>${c.parcours_pedagogique}</p>` : ''}
+    ${c.parcours_professionnel ? `<p><strong>Parcours professionnel</strong><br>${c.parcours_professionnel}</p>` : ''}
+    ${c.atouts ? `<p><strong>Atouts</strong><br>${c.atouts}</p>` : ''}
+    <p><strong>Documents</strong></p>
+    <p style="display:flex; gap:16px; flex-wrap:wrap;">
+      ${c.cv_path ? `<a href="/uploads/${c.cv_path}" target="_blank" class="btn btn-contour">Voir le CV</a>` : ''}
+      ${c.diplome_path ? `<a href="/uploads/${c.diplome_path}" target="_blank" class="btn btn-contour">Voir le diplôme</a>` : ''}
+      ${c.cni_path ? `<a href="/uploads/${c.cni_path}" target="_blank" class="btn btn-contour">Voir la CNI</a>` : ''}
+      ${!c.cv_path && !c.diplome_path && !c.cni_path ? '<span>Aucun document fourni.</span>' : ''}
+    </p>
+  `;
+  document.getElementById('modalFicheCandidat').style.display = 'flex';
+}
+
+function fermerFicheCandidat() {
+  document.getElementById('modalFicheCandidat').style.display = 'none';
 }
 
 async function supprimerCandidat(id) {

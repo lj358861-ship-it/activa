@@ -51,6 +51,7 @@
 <div class="conteneur tableau-bord">
   <div class="tb-entete">
     <h2 style="margin:0;">Mon espace candidat</h2>
+    <span class="etiquette etiquette-valide" id="etiquetteMonId" style="display:none;"></span>
   </div>
 
   <div class="carte" style="background:#fff8e6; border:1px solid #e8c874; margin-bottom:18px;">
@@ -120,6 +121,16 @@
         <div class="champ-fichier"><input type="file" id="cv" accept=".pdf,.doc,.docx"></div>
         <p id="lienCvActuel" style="font-size:0.85rem;"></p>
       </div>
+      <div class="champ">
+        <label>Diplôme scanné (remplace l'ancien si un nouveau fichier est choisi)</label>
+        <div class="champ-fichier"><input type="file" id="diplome" accept=".pdf,.jpg,.jpeg,.png"></div>
+        <p id="lienDiplomeActuel" style="font-size:0.85rem;"></p>
+      </div>
+      <div class="champ">
+        <label>CNI scannée (remplace l'ancienne si un nouveau fichier est choisi)</label>
+        <div class="champ-fichier"><input type="file" id="cni" accept=".pdf,.jpg,.jpeg,.png"></div>
+        <p id="lienCniActuel" style="font-size:0.85rem;"></p>
+      </div>
       <button type="submit" class="btn btn-or btn-large" id="btnProfil">Enregistrer les modifications</button>
     </form>
   </div>
@@ -159,6 +170,11 @@ document.querySelectorAll('.onglet').forEach((o) => {
 async function chargerProfil() {
   try {
     const { candidat } = await appelApi('/candidats/moi');
+    const etiquetteId = document.getElementById('etiquetteMonId');
+    if (candidat.id) {
+      etiquetteId.textContent = `Numéro d'identifiant : #${candidat.id}`;
+      etiquetteId.style.display = 'inline-block';
+    }
     document.getElementById('nom_complet').value = candidat.nom_complet || '';
     document.getElementById('ville').value = candidat.ville || '';
     document.getElementById('domaine').value = candidat.domaine || '';
@@ -169,6 +185,10 @@ async function chargerProfil() {
     if (candidat.photo_path) document.getElementById('apercuPhoto').src = `/uploads/${candidat.photo_path}`;
     const lienCv = document.getElementById('lienCvActuel');
     lienCv.innerHTML = candidat.cv_path ? `CV actuel : <a href="/uploads/${candidat.cv_path}" target="_blank">voir le fichier</a>` : 'Aucun CV envoyé pour le moment.';
+    const lienDiplome = document.getElementById('lienDiplomeActuel');
+    lienDiplome.innerHTML = candidat.diplome_path ? `Diplôme actuel : <a href="/uploads/${candidat.diplome_path}" target="_blank">voir le fichier</a>` : 'Aucun diplôme envoyé pour le moment.';
+    const lienCni = document.getElementById('lienCniActuel');
+    lienCni.innerHTML = candidat.cni_path ? `CNI actuelle : <a href="/uploads/${candidat.cni_path}" target="_blank">voir le fichier</a>` : 'Aucune CNI envoyée pour le moment.';
   } catch (err) {
     afficherMessage(document.getElementById('zoneMessageProfil'), err.message, 'erreur');
   }
@@ -193,6 +213,10 @@ document.getElementById('formProfil').addEventListener('submit', async (e) => {
   if (photo) donnees.append('photo', photo);
   const cv = document.getElementById('cv').files[0];
   if (cv) donnees.append('cv', cv);
+  const diplome = document.getElementById('diplome').files[0];
+  if (diplome) donnees.append('diplome', diplome);
+  const cni = document.getElementById('cni').files[0];
+  if (cni) donnees.append('cni', cni);
 
   try {
     await appelApi('/candidats/moi', { method: 'PUT', corpsFormData: donnees });

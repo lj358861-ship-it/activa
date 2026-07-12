@@ -153,6 +153,17 @@
   </div>
 </div>
 
+<!-- Modal fiche détaillée d'un profil candidat -->
+<div id="modalFicheCandidat" style="display:none; position:fixed; inset:0; background:rgba(11,20,38,0.55); z-index:9999; align-items:flex-start; justify-content:center; padding:20px; overflow-y:auto;">
+  <div class="carte-formulaire" style="max-width:640px; width:100%; margin:20px 0;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 style="margin:0;">Profil du candidat</h3>
+      <button type="button" class="btn btn-contour" onclick="fermerFicheCandidat()">Fermer</button>
+    </div>
+    <div id="contenuFicheCandidat"></div>
+  </div>
+</div>
+
 <script src="/js/commun.js"></script>
 <script>
 exigerRole('employeur');
@@ -233,6 +244,8 @@ async function chargerDemandes() {
   }
 }
 
+let cacheCandidatsEmployeur = {};
+
 async function rechercher(demandeId) {
   const conteneur = document.getElementById('resultatsRecherche');
   conteneur.innerHTML = '<p>Recherche des profils correspondants...</p>';
@@ -242,20 +255,21 @@ async function rechercher(demandeId) {
       conteneur.innerHTML = `<div class="message message-attente">Aucun profil ne correspond encore à "${demande.poste}". Nouvelle recherche possible dès que de nouveaux candidats s'inscrivent.</div>`;
       return;
     }
+    resultats.forEach((c) => { cacheCandidatsEmployeur[c.id] = c; });
     conteneur.innerHTML = `
       <h3>Profils correspondants pour "${demande.poste}"</h3>
       <table class="liste">
-        <thead><tr><th></th><th>Candidat</th><th>Ville</th><th>Niveau</th><th>Atouts</th><th>Correspondance</th><th>CV</th></tr></thead>
+        <thead><tr><th></th><th>Candidat</th><th>Ville</th><th>Niveau</th><th>Atouts</th><th>Correspondance</th><th></th></tr></thead>
         <tbody>
           ${resultats.map((c) => `
-            <tr>
+            <tr style="cursor:pointer;" onclick="ouvrirFicheCandidatEmployeur(${c.id})">
               <td>${c.photo_path ? `<img class="miniature" src="/uploads/${c.photo_path}">` : ''}</td>
               <td>${c.nom_complet}</td>
               <td>${c.ville || '—'}</td>
               <td>${c.niveau_etude}</td>
               <td>${c.atouts || '—'}</td>
               <td><span class="etiquette etiquette-score">${c.score_correspondance}%</span></td>
-              <td>${c.cv_path ? `<a href="/uploads/${c.cv_path}" target="_blank">Voir le CV</a>` : '—'}</td>
+              <td><button type="button" class="btn btn-marine" onclick="event.stopPropagation(); ouvrirFicheCandidatEmployeur(${c.id})">Voir le profil</button></td>
             </tr>
           `).join('')}
         </tbody>
@@ -285,6 +299,7 @@ async function chargerPropositions() {
     }
     const parDemande = {};
     propositions.forEach((p) => {
+      cacheCandidatsEmployeur[p.candidat_id] = { ...p, id: p.candidat_id };
       parDemande[p.demande_id] = parDemande[p.demande_id] || { poste: p.poste, profils: [] };
       parDemande[p.demande_id].profils.push(p);
     });
@@ -292,7 +307,7 @@ async function chargerPropositions() {
     conteneur.innerHTML = Object.values(parDemande).map((groupe) => `
       <h3 style="margin-bottom:10px;">Poste : ${groupe.poste}</h3>
       ${groupe.profils.map((p) => `
-        <div class="carte carte-proposition">
+        <div class="carte carte-proposition" style="cursor:pointer;" onclick="ouvrirFicheCandidatEmployeur(${p.candidat_id})">
           ${p.photo_path
             ? `<img src="/uploads/${p.photo_path}" class="proposition-photo">`
             : `<div class="carte-icone proposition-photo" style="font-size:2rem;">👤</div>`}
@@ -301,9 +316,9 @@ async function chargerPropositions() {
             ${p.parcours_professionnel ? `<p style="margin:0 0 4px;">${p.parcours_professionnel}</p>` : ''}
             ${p.atouts ? `<p style="margin:0 0 4px;"><em>Atouts : ${p.atouts}</em></p>` : ''}
             <p style="margin:0 0 4px;">Correspondance : <span class="etiquette etiquette-score">${p.score_correspondance}%</span></p>
-            ${p.cv_path ? `<a href="/uploads/${p.cv_path}" target="_blank">Voir le CV</a>` : ''}
+            <button type="button" class="btn btn-contour" style="padding:4px 12px; font-size:0.8rem;" onclick="event.stopPropagation(); ouvrirFicheCandidatEmployeur(${p.candidat_id})">Voir le profil complet</button>
           </div>
-          <div class="proposition-action">
+          <div class="proposition-action" onclick="event.stopPropagation();">
             ${p.statut === 'propose'
               ? `<button class="btn btn-or" onclick="selectionnerProfil(${p.id}, this)">Sélectionner ce profil</button>
                  <button class="btn btn-contour" style="margin-top:6px;" onclick="declinerProfil(${p.id})">Pas intéressé</button>`
@@ -378,6 +393,40 @@ async function confirmerSelectionAvecCreneau() {
     btnConfirmer.textContent = 'Confirmer la sélection';
   }
 }
+
+function ouvrirFicheCandidatEmployeur(id) {
+  const c = cacheCandidatsEmployeur[id];
+  if (!c) return;
+  const contenu = document.getElementById('contenuFicheCandidat');
+  contenu.innerHTML = `
+    <div style="display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; margin-bottom:18px;">
+      ${c.photo_path
+        ? `<img src="/uploads/${c.photo_path}" style="width:160px; height:160px; border-radius:12px; object-fit:cover; border:1px solid var(--bordure);">`
+        : `<div style="width:160px; height:160px; border-radius:12px; background:var(--ivoire); display:flex; align-items:center; justify-content:center; font-size:3rem;">👤</div>`}
+      <div style="flex:1; min-width:220px;">
+        <h2 style="margin:0 0 6px;">${c.nom_complet}</h2>
+        <p style="margin:0 0 4px;">${c.domaine} — ${c.niveau_etude}</p>
+        <p style="margin:0 0 4px; color:var(--ardoise-douce);">${c.ville || 'Ville non renseignée'}</p>
+        ${c.score_correspondance ? `<p style="margin:0;">Correspondance : <span class="etiquette etiquette-score">${c.score_correspondance}%</span></p>` : ''}
+      </div>
+    </div>
+    ${c.parcours_pedagogique ? `<p><strong>Parcours pédagogique</strong><br>${c.parcours_pedagogique}</p>` : ''}
+    ${c.parcours_professionnel ? `<p><strong>Parcours professionnel</strong><br>${c.parcours_professionnel}</p>` : ''}
+    ${c.atouts ? `<p><strong>Atouts</strong><br>${c.atouts}</p>` : ''}
+    <p><strong>Documents</strong></p>
+    <p style="display:flex; gap:16px; flex-wrap:wrap;">
+      ${c.cv_path ? `<a href="/uploads/${c.cv_path}" target="_blank" class="btn btn-contour">Voir le CV</a>` : ''}
+      ${c.diplome_path ? `<a href="/uploads/${c.diplome_path}" target="_blank" class="btn btn-contour">Voir le diplôme</a>` : ''}
+      ${!c.cv_path && !c.diplome_path ? '<span>Aucun document fourni.</span>' : ''}
+    </p>
+  `;
+  document.getElementById('modalFicheCandidat').style.display = 'flex';
+}
+
+function fermerFicheCandidat() {
+  document.getElementById('modalFicheCandidat').style.display = 'none';
+}
+
 </script>
 </body>
 </html>

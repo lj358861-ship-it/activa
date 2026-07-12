@@ -152,4 +152,68 @@ router.get('/evolution', async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 
+// ⚠️ RÉINITIALISATION DES DONNÉES DE TEST : supprime TOUTES les transactions,
+// TOUS les comptes candidats et employeurs (et tout ce qui en dépend : demandes,
+// mises en relation, notifications, fichiers uploadés — CV/photos/diplômes/CNI).
+// Ne touche PAS au compte admin, ni aux services/événements/collaborateurs/
+// messages de contact/carrousel (contenu du site, pas des données de test).
+// Protégé par le PIN finances + une confirmation textuelle exacte, car
+// irréversible.
+router.post('/reinitialiser-donnees-test', async (req, res) => {
+  const PHRASE_CONFIRMATION = 'SUPPRIMER';
+  const confirmation = (req.body && req.body.confirmation) || '';
+  if (confirmation !== PHRASE_CONFIRMATION) {
+    return res.status(400).json({ erreur: `Merci de taper exactement "${PHRASE_CONFIRMATION}" pour confirmer cette action irréversible.` });
+  }
+
+  const connexion = await pool.getConnection();
+  try {
+    await connexion.beginTransaction();
+
+    // On récupère d'abord les fichiers liés aux candidats à supprimer (CV, photo,
+    // diplôme, CNI), pour pouvoir nettoyer ensuite la table `fichiers` — sinon les
+    // blobs resteraient orphelins en base après la suppression en cascade.
+    const [candidatsFichiers] = await connexion.query(
+      'SELECT cv_path, photo_path, diplome_path, cni_path FROM candidats'
+    );
+    const idsFichiers = [];
+    for (const c of candidatsFichiers) {
+      [c.cv_path, c.photo_path, c.diplome_path, c.cni_path].forEach((id) => { if (id) idsFichiers.push(id); });
+    }
+
+    const [[{ n: nombreCandidats }]] = await connexion.query('SELECT COUNT(*) AS n FROM candidats');
+    const [[{ n: nombreEmployeurs }]] = await connexion.query('SELECT COUNT(*) AS n FROM employeurs');
+    const [[{ n: nombreTransactions }]] = await connexion.query('SELECT COUNT(*) AS n FROM transactions');
+
+    // Supprime tous les comptes candidat/employeur (cascade : candidats, employeurs,
+    // demandes, mises_en_relation, notifications liées à ces users).
+    await connexion.query(`DELETE FROM users WHERE role IN ('candidat', 'employeur')`);
+
+    // Vide la caisse (paiements confirmés).
+    await connexion.query('DELETE FROM transactions');
+
+    // Nettoie les fichiers uploadés désormais orphelins.
+    let fichiersSupprimes = 0;
+    if (idsFichiers.length) {
+      const [resultat] = await connexion.query('DELETE FROM fichiers WHERE id IN (?)', [idsFichiers]);
+      fichiersSupprimes = resultat.affectedRows;
+    }
+
+    await connexion.commit();
+    res.json({
+      message: 'Toutes les données de test ont été supprimées : comptes candidats/employeurs, transactions et fichiers associés.',
+      candidats_supprimes: nombreCandidats,
+      employeurs_supprimes: nombreEmployeurs,
+      transactions_supprimees: nombreTransactions,
+      fichiers_supprimes: fichiersSupprimes
+    });
+  } catch (e) {
+    await connexion.rollback();
+    console.error(e);
+    res.status(500).json({ erreur: 'Erreur serveur lors de la réinitialisation.' });
+  } finally {
+    connexion.release();
+  }
+});
+
 module.exports = router;

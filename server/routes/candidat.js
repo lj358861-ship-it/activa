@@ -22,15 +22,26 @@ router.post(
   async (req, res) => {
     const {
       email, mot_de_passe, telephone,
-      nom_complet, ville, niveau_etude, domaine,
+      nom_complet, date_naissance, ville, niveau_etude, domaine,
       parcours_pedagogique, parcours_professionnel, atouts
     } = req.body;
 
     if (
-      !email || !mot_de_passe || !telephone || !nom_complet || !ville ||
+      !email || !mot_de_passe || !telephone || !nom_complet || !date_naissance || !ville ||
       !niveau_etude || !domaine || !parcours_pedagogique || !atouts
     ) {
       return res.status(400).json({ erreur: 'Merci de remplir tous les champs obligatoires (seul le parcours professionnel est optionnel).' });
+    }
+
+    // Vérifie que la date de naissance est plausible : pas dans le futur, et un âge
+    // raisonnable (16 à 100 ans), pour éviter les erreurs de saisie.
+    const naissance = new Date(date_naissance);
+    if (isNaN(naissance.getTime())) {
+      return res.status(400).json({ erreur: 'Date de naissance invalide.' });
+    }
+    const ageCalcule = Math.floor((Date.now() - naissance.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+    if (naissance > new Date() || ageCalcule < 16 || ageCalcule > 100) {
+      return res.status(400).json({ erreur: 'Merci de vérifier la date de naissance (âge attendu entre 16 et 100 ans).' });
     }
     if (!req.files?.cv?.[0]) {
       return res.status(400).json({ erreur: 'Le CV est obligatoire.' });
@@ -70,9 +81,9 @@ router.post(
 
       const [resultCandidat] = await connexion.query(
         `INSERT INTO candidats
-         (user_id, code_candidat, nom_complet, ville, niveau_etude, domaine, parcours_pedagogique, parcours_professionnel, atouts, cv_path, photo_path, diplome_path, cni_path)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [userId, codeCandidat, nom_complet, ville || null, niveau_etude, domaine, parcours_pedagogique || null, parcours_professionnel || null, atouts || null, cvPath, photoPath, diplomePath, cniPath]
+         (user_id, code_candidat, nom_complet, date_naissance, ville, niveau_etude, domaine, parcours_pedagogique, parcours_professionnel, atouts, cv_path, photo_path, diplome_path, cni_path)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [userId, codeCandidat, nom_complet, date_naissance, ville || null, niveau_etude, domaine, parcours_pedagogique || null, parcours_professionnel || null, atouts || null, cvPath, photoPath, diplomePath, cniPath]
       );
       const candidatId = resultCandidat.insertId;
 
@@ -132,7 +143,7 @@ router.put(
     { name: 'cni', maxCount: 1 }
   ]),
   async (req, res) => {
-    const { nom_complet, ville, niveau_etude, domaine, parcours_pedagogique, parcours_professionnel, atouts } = req.body;
+    const { nom_complet, date_naissance, ville, niveau_etude, domaine, parcours_pedagogique, parcours_professionnel, atouts } = req.body;
     try {
       const champs = [
         'nom_complet = ?', 'ville = ?', 'niveau_etude = ?', 'domaine = ?',
@@ -142,6 +153,7 @@ router.put(
         nom_complet, ville || null, niveau_etude, domaine,
         parcours_pedagogique || null, parcours_professionnel || null, atouts || null
       ];
+      if (date_naissance) { champs.push('date_naissance = ?'); valeurs.push(date_naissance); }
       if (req.files?.cv?.[0]) { champs.push('cv_path = ?'); valeurs.push(await enregistrerFichier(req.files.cv[0])); }
       if (req.files?.photo?.[0]) { champs.push('photo_path = ?'); valeurs.push(await enregistrerFichier(req.files.photo[0])); }
       if (req.files?.diplome?.[0]) { champs.push('diplome_path = ?'); valeurs.push(await enregistrerFichier(req.files.diplome[0])); }

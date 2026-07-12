@@ -195,4 +195,31 @@ router.put('/mises-en-relation/:id/selectionner', verifierToken, autoriserRoles(
   }
 });
 
+// L'employeur retire un profil proposé qui ne l'intéresse pas. Possible uniquement
+// tant que le profil est encore au statut 'propose' (pas encore sélectionné) —
+// au-delà, c'est le suivi de sélection (côté admin) qui prend le relais.
+router.delete('/propositions/:id', verifierToken, autoriserRoles('employeur'), async (req, res) => {
+  try {
+    const [empRows] = await pool.query('SELECT id FROM employeurs WHERE user_id = ?', [req.utilisateur.id]);
+    if (!empRows.length) return res.status(404).json({ erreur: 'Profil employeur introuvable.' });
+
+    const [rows] = await pool.query(
+      `SELECT mer.id, mer.statut FROM mises_en_relation mer
+       JOIN demandes d ON d.id = mer.demande_id
+       WHERE mer.id = ? AND d.employeur_id = ?`,
+      [req.params.id, empRows[0].id]
+    );
+    if (!rows.length) return res.status(404).json({ erreur: 'Proposition introuvable.' });
+    if (rows[0].statut !== 'propose') {
+      return res.status(400).json({ erreur: 'Ce profil a déjà été sélectionné, il ne peut plus être retiré depuis cette liste.' });
+    }
+
+    await pool.query('DELETE FROM mises_en_relation WHERE id = ?', [req.params.id]);
+    res.json({ message: 'Profil retiré de tes propositions.' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ erreur: 'Erreur serveur.' });
+  }
+});
+
 module.exports = router;

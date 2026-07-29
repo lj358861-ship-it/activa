@@ -137,7 +137,54 @@ router.get('/statistiques', async (req, res) => {
     const [[{ total_employeurs }]] = await pool.query('SELECT COUNT(*) AS total_employeurs FROM employeurs');
     const [[{ employeurs_en_attente }]] = await pool.query('SELECT COUNT(*) AS employeurs_en_attente FROM employeurs WHERE is_valide = FALSE');
     const [[{ demandes_ouvertes }]] = await pool.query('SELECT COUNT(*) AS demandes_ouvertes FROM demandes WHERE statut = "ouverte"');
-    res.json({ total_candidats, total_employeurs, employeurs_en_attente, demandes_ouvertes });
+    const [[{ demandes_fermees }]] = await pool.query('SELECT COUNT(*) AS demandes_fermees FROM demandes WHERE statut = "fermee"');
+    const [[{ employeurs_valides }]] = await pool.query('SELECT COUNT(*) AS employeurs_valides FROM employeurs WHERE is_valide = TRUE');
+
+    // Répartition des mises en relation par statut (pour le donut "Pipeline de recrutement")
+    const [statutsMER] = await pool.query(
+      `SELECT statut, COUNT(*) AS n FROM mises_en_relation GROUP BY statut`
+    );
+    const pipeline = { propose: 0, selectionne: 0, paiement_propose: 0, notifie: 0, rejete: 0, annule: 0 };
+    statutsMER.forEach((r) => { pipeline[r.statut] = r.n; });
+
+    // Top 5 des domaines les plus demandés par les candidats (pour un donut secondaire)
+    const [topDomaines] = await pool.query(
+      `SELECT domaine, COUNT(*) AS n FROM candidats GROUP BY domaine ORDER BY n DESC LIMIT 5`
+    );
+
+    // Évolution des inscriptions (30 derniers jours) : candidats et employeurs par jour,
+    // pour un graphique en aires — donne une vraie tendance, pas juste un instantané.
+    const [inscriptionsCandidats] = await pool.query(
+      `SELECT DATE(created_at) AS jour, COUNT(*) AS n FROM candidats
+       WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)
+       GROUP BY DATE(created_at)`
+    );
+    const [inscriptionsEmployeurs] = await pool.query(
+      `SELECT DATE(created_at) AS jour, COUNT(*) AS n FROM employeurs
+       WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)
+       GROUP BY DATE(created_at)`
+    );
+    const parJourCandidats = Object.fromEntries(inscriptionsCandidats.map((r) => [r.jour.toISOString().slice(0, 10), r.n]));
+    const parJourEmployeurs = Object.fromEntries(inscriptionsEmployeurs.map((r) => [r.jour.toISOString().slice(0, 10), r.n]));
+    const evolution_inscriptions = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const cle = d.toISOString().slice(0, 10);
+      evolution_inscriptions.push({ jour: cle, candidats: parJourCandidats[cle] || 0, employeurs: parJourEmployeurs[cle] || 0 });
+    }
+
+    res.json({
+      total_candidats,
+      total_employeurs,
+      employeurs_en_attente,
+      demandes_ouvertes,
+      demandes_fermees,
+      employeurs_valides,
+      pipeline,
+      top_domaines: topDomaines,
+      evolution_inscriptions
+    });
   } catch (e) {
     console.error(e);
     res.status(500).json({ erreur: 'Erreur serveur.' });

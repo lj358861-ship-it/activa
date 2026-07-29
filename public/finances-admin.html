@@ -8,7 +8,17 @@
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/css/style.css?v=2">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
+  .analytics-grille { display:grid; grid-template-columns: 1.6fr 1fr; gap:20px; margin-bottom: 28px; }
+  .analytics-carte { background:var(--blanc); border:1px solid var(--bordure); border-radius:var(--rayon-lg); padding:22px 24px; box-shadow:var(--ombre); }
+  .analytics-carte h4 { margin:0 0 4px; font-family:'Fraunces', serif; color:var(--marine); font-size:1.05rem; }
+  .analytics-soustitre { font-size:0.8rem; color:var(--ardoise-douce); margin:0 0 14px; }
+  .analytics-legende { display:flex; flex-wrap:wrap; gap:10px 18px; margin-top:14px; justify-content:center; }
+  .analytics-legende span { font-size:0.78rem; color:var(--ardoise-douce); display:flex; align-items:center; gap:6px; }
+  .analytics-legende i { width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .analytics-vide { font-size:0.85rem; color:var(--ardoise-douce); text-align:center; padding:30px 0; }
+  @media (max-width: 860px) { .analytics-grille { grid-template-columns: 1fr; } }
   .pin-ecran { min-height: 70vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
   .pin-carte { max-width: 360px; width: 100%; text-align: center; }
   .pin-points { display: flex; gap: 12px; justify-content: center; margin: 22px 0; }
@@ -24,11 +34,6 @@
   .periode-btn.actif, .periode-btn:hover { background: var(--marine); color: var(--blanc); }
   .plage-perso { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 24px; }
   .plage-perso .champ { margin-bottom: 0; }
-  .graphique-info { min-height:22px; font-size:0.88rem; color:var(--marine); font-weight:600; margin-bottom:10px; text-align:center; transition: opacity 0.15s ease; }
-  .graphique-barres { display: flex; align-items: flex-end; gap: 4px; height: 180px; background: var(--blanc); border: 1px solid var(--bordure); border-radius: var(--rayon); padding: 18px 12px 10px; margin-bottom: 28px; }
-  .barre-jour-conteneur { flex: 1 1 0; max-width: 32px; display: flex; align-items: flex-end; height: 100%; cursor: pointer; }
-  .barre-jour { width: 100%; background: linear-gradient(180deg, var(--or), var(--marine)); border-radius: 5px 5px 2px 2px; height: 0%; transition: height 0.7s cubic-bezier(0.22, 1, 0.36, 1), filter 0.15s ease; }
-  .barre-jour-conteneur:hover .barre-jour, .barre-jour-conteneur.actif .barre-jour { filter: brightness(1.2); }
 </style>
 </head>
 <body>
@@ -114,11 +119,22 @@
     <button type="button" class="periode-btn" data-periode-rdv="annee">Cette année</button>
     <button type="button" class="periode-btn" data-periode-rdv="tout">Depuis toujours</button>
   </div>
-  <div class="tb-stats" id="statsRdv" style="margin-bottom:32px;"></div>
 
-  <h3 style="margin-top:8px;">Évolution (30 derniers jours)</h3>
-  <div class="graphique-info" id="graphiqueInfo">Touchez une barre pour voir le détail du jour</div>
-  <div class="graphique-barres" id="graphiqueEvolution"></div>
+  <div class="analytics-grille" style="grid-template-columns: 1fr 0.8fr; margin-bottom:16px;">
+    <div class="tb-stats" id="statsRdv" style="margin-bottom:0;"></div>
+    <div class="analytics-carte">
+      <h4>Répartition des rendez-vous</h4>
+      <p class="analytics-soustitre" id="repartitionRdvSoustitre">Sur la période sélectionnée</p>
+      <div style="height:170px;"><canvas id="graphRdv"></canvas></div>
+      <div class="analytics-legende" id="legendeRdv"></div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:24px;">Évolution de la caisse (30 derniers jours)</h3>
+  <p class="analytics-soustitre" id="graphiqueInfo">Chiffre d'affaires encaissé par jour</p>
+  <div class="analytics-carte" style="margin-bottom:28px;">
+    <div style="height:240px;"><canvas id="graphiqueEvolution"></canvas></div>
+  </div>
 
   <h3>Détail des transactions</h3>
   <div class="periode-boutons" id="periodeBoutons">
@@ -270,6 +286,14 @@ async function chargerResume() {
   } catch (err) { if (!err.message.includes('PIN')) conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
 }
 
+Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+Chart.defaults.color = '#5B6472';
+let graphRdvInstance = null;
+
+const LIBELLES_PERIODE = { jour: "aujourd'hui", semaine: 'cette semaine', mois: 'ce mois-ci', annee: 'cette année', tout: 'depuis toujours' };
+const RDV_COULEURS = { envoyes: '#8AA0BF', confirmes: '#4C9A6A', annules: '#B3432B', incomplets: '#E8A33D' };
+const RDV_LABELS = { envoyes: 'Envoyés', confirmes: 'Confirmés', annules: 'Annulés', incomplets: 'Incomplets' };
+
 function afficherStatsRdv(periode) {
   const conteneur = document.getElementById('statsRdv');
   if (!dernierResume) return;
@@ -281,6 +305,33 @@ function afficherStatsRdv(periode) {
     <div class="tb-stat"><span class="icone">⚠️</span><div class="valeur" data-compteur="${r.incomplets}">0</div><div class="label">Dossiers incomplets</div></div>
   `;
   animerCompteurs(conteneur);
+  document.getElementById('repartitionRdvSoustitre').textContent = `Sur la période : ${LIBELLES_PERIODE[periode] || periode}`;
+  dessinerGraphRdv(r);
+}
+
+function dessinerGraphRdv(r) {
+  const canvas = document.getElementById('graphRdv');
+  const donnees = Object.entries(RDV_LABELS).map(([cle, label]) => ({ cle, label, n: r[cle] || 0 }));
+  const zone = document.getElementById('legendeRdv');
+  if (graphRdvInstance) { graphRdvInstance.destroy(); graphRdvInstance = null; }
+  if (!donnees.some((d) => d.n > 0)) {
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    zone.innerHTML = '<span>Aucun rendez-vous sur cette période.</span>';
+    return;
+  }
+  graphRdvInstance = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels: donnees.map((d) => d.label),
+      datasets: [{
+        data: donnees.map((d) => d.n),
+        backgroundColor: donnees.map((d) => RDV_COULEURS[d.cle]),
+        borderWidth: 3, borderColor: '#FFFFFF', hoverOffset: 6
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { display: false } } }
+  });
+  zone.innerHTML = donnees.map((d) => `<span><i style="background:${RDV_COULEURS[d.cle]}"></i>${d.label} (${d.n})</span>`).join('');
 }
 
 let periodeActiveRdv = 'jour';
@@ -293,40 +344,65 @@ document.querySelectorAll('#periodeBoutonsRdv .periode-btn').forEach((bouton) =>
   });
 });
 
+let graphEvolutionInstance = null;
+
 async function chargerEvolution() {
-  const conteneur = document.getElementById('graphiqueEvolution');
+  const canvas = document.getElementById('graphiqueEvolution');
   const infoZone = document.getElementById('graphiqueInfo');
   try {
     const { evolution } = await appelApiFinances('/evolution?jours=30');
-    if (!evolution.length) { conteneur.innerHTML = ''; infoZone.textContent = 'Aucune donnée pour le moment.'; return; }
-    const maxTotal = Math.max(...evolution.map((j) => j.total_fcfa), 1);
+    if (!evolution.length || !evolution.some((j) => j.total_fcfa > 0)) {
+      infoZone.textContent = 'Aucune donnée pour le moment.';
+      return;
+    }
+    const total30j = evolution.reduce((s, j) => s + j.total_fcfa, 0);
+    const paiements30j = evolution.reduce((s, j) => s + j.nombre, 0);
+    infoZone.textContent = `${formaterFcfa(total30j)} encaissés sur 30 jours — ${paiements30j} paiement${paiements30j > 1 ? 's' : ''}`;
 
-    conteneur.innerHTML = evolution.map((j, i) => {
-      const hauteur = Math.max((j.total_fcfa / maxTotal) * 100, j.total_fcfa > 0 ? 6 : 2);
-      const dateAffichee = new Date(j.jour).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
-      const info = `${dateAffichee} — ${formaterFcfa(j.total_fcfa)} (${j.nombre} paiement${j.nombre > 1 ? 's' : ''})`;
-      return `<div class="barre-jour-conteneur" data-index="${i}" data-info="${info}" onclick="selectionnerBarre(this)"><div class="barre-jour" data-hauteur="${hauteur}"></div></div>`;
-    }).join('');
-
-    // Fait grandir les barres après insertion (sinon la transition CSS n'a rien à animer)
-    requestAnimationFrame(() => {
-      conteneur.querySelectorAll('.barre-jour').forEach((barre, i) => {
-        setTimeout(() => { barre.style.height = `${barre.dataset.hauteur}%`; }, i * 12);
-      });
+    const labels = evolution.map((j) => new Date(j.jour).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }));
+    if (graphEvolutionInstance) graphEvolutionInstance.destroy();
+    graphEvolutionInstance = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Encaissé',
+          data: evolution.map((j) => j.total_fcfa),
+          borderColor: '#E8A33D',
+          backgroundColor: (ctx) => {
+            const { chartArea, ctx: c } = ctx.chart;
+            if (!chartArea) return '#E8A33D22';
+            const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+            g.addColorStop(0, '#E8A33DB3');
+            g.addColorStop(1, '#E8A33D05');
+            return g;
+          },
+          fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 5,
+          pointHoverBackgroundColor: '#0B1F3A', borderWidth: 2.5
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#0B1F3A', padding: 10, cornerRadius: 8,
+            callbacks: {
+              label: (item) => {
+                const j = evolution[item.dataIndex];
+                return `${formaterFcfa(j.total_fcfa)} — ${j.nombre} paiement${j.nombre > 1 ? 's' : ''}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { maxTicksLimit: 10, font: { size: 11 } } },
+          y: { beginAtZero: true, ticks: { font: { size: 11 }, callback: (v) => v.toLocaleString('fr-FR') }, grid: { color: '#EEEAE2' } }
+        }
+      }
     });
-
-    // Sélectionne par défaut le dernier jour ayant un paiement (sinon le dernier jour tout court)
-    const dernierAvecDonnee = [...evolution].reverse().find((j) => j.total_fcfa > 0);
-    const indexParDefaut = dernierAvecDonnee ? evolution.indexOf(dernierAvecDonnee) : evolution.length - 1;
-    const barreParDefaut = conteneur.querySelector(`[data-index="${indexParDefaut}"]`);
-    if (barreParDefaut) selectionnerBarre(barreParDefaut);
-  } catch (err) { if (!err.message.includes('PIN')) conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`; }
-}
-
-function selectionnerBarre(el) {
-  document.querySelectorAll('.barre-jour-conteneur').forEach((b) => b.classList.remove('actif'));
-  el.classList.add('actif');
-  document.getElementById('graphiqueInfo').textContent = el.dataset.info;
+  } catch (err) { if (!err.message.includes('PIN')) infoZone.textContent = err.message; }
 }
 
 let periodeActive = 'jour';

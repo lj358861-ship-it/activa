@@ -8,6 +8,18 @@
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/css/style.css?v=2">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  .analytics-grille { display:grid; grid-template-columns: 1.6fr 1fr; gap:20px; margin: 4px 0 36px; }
+  .analytics-carte { background:var(--blanc); border:1px solid var(--bordure); border-radius:var(--rayon-lg); padding:22px 24px; box-shadow:var(--ombre); }
+  .analytics-carte h4 { margin:0 0 4px; font-family:'Fraunces', serif; color:var(--marine); font-size:1.05rem; }
+  .analytics-soustitre { font-size:0.8rem; color:var(--ardoise-douce); margin:0 0 14px; }
+  .analytics-legende { display:flex; flex-wrap:wrap; gap:10px 18px; margin-top:14px; }
+  .analytics-legende span { font-size:0.78rem; color:var(--ardoise-douce); display:flex; align-items:center; gap:6px; }
+  .analytics-legende i { width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .analytics-vide { font-size:0.85rem; color:var(--ardoise-douce); text-align:center; padding:30px 0; }
+  @media (max-width: 860px) { .analytics-grille { grid-template-columns: 1fr; } }
+</style>
 </head>
 <body>
 <div id="aprjIntro" class="aprj-intro">
@@ -52,6 +64,20 @@
   <div class="tb-entete"><h2 style="margin:0;">Vue d'ensemble</h2></div>
 
   <div class="tb-stats" id="stats"></div>
+
+  <div class="analytics-grille">
+    <div class="analytics-carte">
+      <h4>Évolution des inscriptions</h4>
+      <p class="analytics-soustitre">Candidats et employeurs inscrits, 30 derniers jours</p>
+      <div style="height:220px;"><canvas id="graphInscriptions"></canvas></div>
+    </div>
+    <div class="analytics-carte">
+      <h4>Pipeline de recrutement</h4>
+      <p class="analytics-soustitre">Répartition des mises en relation par statut</p>
+      <div style="height:190px;"><canvas id="graphPipeline"></canvas></div>
+      <div class="analytics-legende" id="legendePipeline"></div>
+    </div>
+  </div>
 
   <button class="onglets-toggle" id="ongletsToggle" type="button" aria-expanded="false">
     <span id="ongletsToggleLabel">Employeurs en attente</span>
@@ -624,7 +650,98 @@ async function chargerStats() {
       <div class="tb-stat"><span class="icone">📋</span><div class="valeur" data-compteur="${s.demandes_ouvertes}">0</div><div class="label">Demandes ouvertes</div></div>
     `;
     animerCompteurs(conteneur);
+    dessinerGraphInscriptions(s.evolution_inscriptions || []);
+    dessinerGraphPipeline(s.pipeline || {});
   } catch (err) { console.error(err); }
+}
+
+Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+Chart.defaults.color = '#5B6472';
+
+function degradeVertical(ctx, couleur) {
+  const { chartArea, ctx: c } = ctx.chart;
+  if (!chartArea) return couleur;
+  const g = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+  g.addColorStop(0, couleur + 'B3');
+  g.addColorStop(1, couleur + '05');
+  return g;
+}
+
+function dessinerGraphInscriptions(evolution) {
+  const canvas = document.getElementById('graphInscriptions');
+  if (!evolution.length || !evolution.some((j) => j.candidats || j.employeurs)) {
+    canvas.parentElement.innerHTML = '<p class="analytics-vide">Pas encore assez de données pour tracer une tendance.</p>';
+    return;
+  }
+  const labels = evolution.map((j) => new Date(j.jour).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }));
+  new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Candidats',
+          data: evolution.map((j) => j.candidats),
+          borderColor: '#0B1F3A',
+          backgroundColor: (ctx) => degradeVertical(ctx, '#0B1F3A'),
+          fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2.5
+        },
+        {
+          label: 'Employeurs',
+          data: evolution.map((j) => j.employeurs),
+          borderColor: '#E8A33D',
+          backgroundColor: (ctx) => degradeVertical(ctx, '#E8A33D'),
+          fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2.5
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'top', align: 'end', labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: 'circle' } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 8, font: { size: 11 } } },
+        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 11 } }, grid: { color: '#EEEAE2' } }
+      }
+    }
+  });
+}
+
+const COULEURS_PIPELINE = {
+  propose: '#8AA0BF', selectionne: '#4C9A6A', paiement_propose: '#E8A33D',
+  notifie: '#2F855A', rejete: '#B3432B', annule: '#5B6472'
+};
+const LABELS_PIPELINE = {
+  propose: 'Proposés', selectionne: 'Sélectionnés', paiement_propose: 'RDV paiement envoyé',
+  notifie: 'Entretien confirmé', rejete: 'Dossiers rejetés', annule: 'Annulés'
+};
+
+function dessinerGraphPipeline(pipeline) {
+  const canvas = document.getElementById('graphPipeline');
+  const entrees = Object.entries(pipeline).filter(([, n]) => n > 0);
+  if (!entrees.length) {
+    canvas.parentElement.innerHTML = '<p class="analytics-vide">Aucune mise en relation pour le moment.</p>';
+    document.getElementById('legendePipeline').innerHTML = '';
+    return;
+  }
+  new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels: entrees.map(([cle]) => LABELS_PIPELINE[cle] || cle),
+      datasets: [{
+        data: entrees.map(([, n]) => n),
+        backgroundColor: entrees.map(([cle]) => COULEURS_PIPELINE[cle] || '#8AA0BF'),
+        borderWidth: 3, borderColor: '#FFFFFF', hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '68%',
+      plugins: { legend: { display: false } }
+    }
+  });
+  document.getElementById('legendePipeline').innerHTML = entrees.map(([cle, n]) =>
+    `<span><i style="background:${COULEURS_PIPELINE[cle] || '#8AA0BF'}"></i>${LABELS_PIPELINE[cle] || cle} (${n})</span>`
+  ).join('');
 }
 
 async function chargerEnAttente() {

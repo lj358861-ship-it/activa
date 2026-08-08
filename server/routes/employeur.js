@@ -2,6 +2,8 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const pool = require('../db');
 const { verifierToken, autoriserRoles } = require('../middleware/auth');
+const { genererCodeVerification, DUREE_VALIDITE_MINUTES } = require('../services/verification');
+const { envoyerEmailVerification } = require('../services/email');
 
 const router = express.Router();
 
@@ -24,9 +26,11 @@ router.post('/inscription', async (req, res) => {
     }
 
     const hash = await bcrypt.hash(mot_de_passe, 10);
+    const codeVerification = genererCodeVerification();
+    const codeExpire = new Date(Date.now() + DUREE_VALIDITE_MINUTES * 60 * 1000);
     const [resultUser] = await connexion.query(
-      'INSERT INTO users (role, email, password_hash, telephone) VALUES ("employeur", ?, ?, ?)',
-      [email, hash, telephone]
+      'INSERT INTO users (role, email, password_hash, telephone, email_verifie, code_verification, code_verification_expire) VALUES ("employeur", ?, ?, ?, FALSE, ?, ?)',
+      [email, hash, telephone, codeVerification, codeExpire]
     );
     const userId = resultUser.insertId;
 
@@ -37,8 +41,13 @@ router.post('/inscription', async (req, res) => {
     );
 
     await connexion.commit();
+
+    const resultatVerifEmail = await envoyerEmailVerification({ email, nomComplet: nom_societe, code: codeVerification });
+
     res.status(201).json({
-      message: 'Inscription envoyée ! Ton compte entreprise sera activé après vérification par l\'APRJ.'
+      message: 'Inscription envoyée ! Vérifie ton adresse email, puis ton compte entreprise sera activé après vérification par l\'APRJ.',
+      necessite_verification_email: true,
+      email_verification_envoye: resultatVerifEmail.envoye
     });
   } catch (e) {
     await connexion.rollback();

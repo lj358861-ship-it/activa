@@ -7,6 +7,9 @@ const { verifierToken, autoriserRoles } = require('../middleware/auth');
 const { envoyerNotificationCandidature } = require('../services/whatsapp');
 const { enregistrerFichier } = require('../services/fichiers');
 const { genererCodeCandidat } = require('../services/identifiants');
+const { genererCodeVerification, DUREE_VALIDITE_MINUTES } = require('../services/verification');
+const { envoyerEmailVerification } = require('../services/email');
+const { questionsPubliques, corriger, QUESTIONS } = require('../data/quiz-aptitude');
 
 const router = express.Router();
 
@@ -67,9 +70,11 @@ router.post(
       }
 
       const hash = await bcrypt.hash(mot_de_passe, 10);
+      const codeVerification = genererCodeVerification();
+      const codeExpire = new Date(Date.now() + DUREE_VALIDITE_MINUTES * 60 * 1000);
       const [resultUser] = await connexion.query(
-        'INSERT INTO users (role, email, password_hash, telephone) VALUES ("candidat", ?, ?, ?)',
-        [email, hash, telephone]
+        'INSERT INTO users (role, email, password_hash, telephone, email_verifie, code_verification, code_verification_expire) VALUES ("candidat", ?, ?, ?, FALSE, ?, ?)',
+        [email, hash, telephone, codeVerification, codeExpire]
       );
       const userId = resultUser.insertId;
 
@@ -89,6 +94,10 @@ router.post(
 
       await connexion.commit();
 
+      // Envoi du code de vérification d'email (ne bloque pas l'inscription si Brevo échoue —
+      // le candidat pourra toujours demander un renvoi de code depuis l'écran de vérification).
+      const resultatVerifEmail = await envoyerEmailVerification({ email, nomComplet: nom_complet, code: codeVerification });
+
       // Notification WhatsApp vers l'APRJ (ne bloque pas la réponse si ça échoue)
       const cvUrl = cvPath ? `${process.env.PUBLIC_BASE_URL || ''}/uploads/${cvPath}` : null;
       const resultatWhatsapp = await envoyerNotificationCandidature({
@@ -107,7 +116,9 @@ router.post(
         message: 'Inscription réussie ! Ton profil a été enregistré.',
         candidat_id: candidatId,
         code_candidat: codeCandidat,
-        notification_whatsapp: resultatWhatsapp.envoye
+        notification_whatsapp: resultatWhatsapp.envoye,
+        necessite_verification_email: true,
+        email_verification_envoye: resultatVerifEmail.envoye
       });
     } catch (e) {
       await connexion.rollback();
@@ -165,6 +176,30 @@ router.put(
   }
 );
 
+// Suivi de candidature : liste des mises en relation du candidat connecté,
+// avec le statut à jour (proposé / sélectionné / notifié / rejeté / annulé)
+// et les infos de l'entreprise + du poste, pour un affichage en étapes côté front.
+router.get('/candidatures', verifierToken, autoriserRoles('candidat'), async (req, res) => {
+  try {
+    const [candRows] = await pool.query('SELECT id FROM candidats WHERE user_id = ?', [req.utilisateur.id]);
+    if (!candRows.length) return res.status(404).json({ erreur: 'Profil candidat introuvable.' });
+
+    const [rows] = await pool.query(
+      `SELECT mer.id, mer.statut, mer.score_correspondance, mer.selectionne_le, mer.notifie_le,
+              mer.entretien_date, mer.entretien_lieu, mer.created_at,
+              d.poste, d.domaine,
+              e.nom_societe, e.ville AS employeur_ville
+       FROM mises_en_relation mer
+       JOIN demandes d ON d.id = mer.demande_id
+       JOIN employeurs e ON e.id = d.employeur_id
+       WHERE mer.candidat_id = ?
+       ORDER BY mer.created_at DESC`,
+      [candRows[0].id]
+    );
+    res.json({ candidatures: rows });
+  } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
+});
+
 // Notifications du candidat connecté (propositions d'opportunités envoyées par l'APRJ)
 router.get('/notifications', verifierToken, autoriserRoles('candidat'), async (req, res) => {
   try {
@@ -180,6 +215,61 @@ router.post('/notifications/:id/lu', verifierToken, autoriserRoles('candidat'), 
   try {
     await pool.query('UPDATE notifications SET lu = TRUE WHERE id = ? AND user_id = ?', [req.params.id, req.utilisateur.id]);
     res.json({ message: 'Notification marquée comme lue.' });
+  } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
+});
+
+// ===== Quiz d'aptitude professionnelle (une seule tentative par candidat) =====
+
+// Récupère les questions (sans les bonnes réponses) + indique si déjà passé.
+router.get('/quiz', verifierToken, autoriserRoles('candidat'), async (req, res) => {
+  try {
+    const [candRows] = await pool.query('SELECT id FROM candidats WHERE user_id = ?', [req.utilisateur.id]);
+    if (!candRows.length) return res.status(404).json({ erreur: 'Profil candidat introuvable.' });
+
+    const [resultatExistant] = await pool.query(
+      'SELECT score, nombre_bonnes_reponses, created_at FROM quiz_resultats WHERE candidat_id = ?',
+      [candRows[0].id]
+    );
+    if (resultatExistant.length) {
+      return res.json({ deja_complete: true, resultat: resultatExistant[0] });
+    }
+    res.json({ deja_complete: false, questions: questionsPubliques() });
+  } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
+});
+
+// Vérifie une réponse à la volée (pour l'animation vert/rouge immédiate),
+// sans jamais exposer la banque complète des bonnes réponses au client.
+router.post('/quiz/verifier', verifierToken, autoriserRoles('candidat'), (req, res) => {
+  const { id, choix } = req.body;
+  const question = QUESTIONS.find((q) => q.id === id);
+  if (!question) return res.status(400).json({ erreur: 'Question inconnue.' });
+  res.json({ correct: choix === question.correcte, correcte: question.correcte });
+});
+
+// Soumission finale : recalcule le score côté serveur (jamais confiance au
+// client) et enregistre le résultat. Une seule tentative possible.
+router.post('/quiz', verifierToken, autoriserRoles('candidat'), async (req, res) => {
+  try {
+    const [candRows] = await pool.query('SELECT id FROM candidats WHERE user_id = ?', [req.utilisateur.id]);
+    if (!candRows.length) return res.status(404).json({ erreur: 'Profil candidat introuvable.' });
+    const candidatId = candRows[0].id;
+
+    const [existant] = await pool.query('SELECT id FROM quiz_resultats WHERE candidat_id = ?', [candidatId]);
+    if (existant.length) {
+      return res.status(409).json({ erreur: 'Tu as déjà passé ce quiz, une seule tentative est autorisée.' });
+    }
+
+    const { reponses } = req.body;
+    if (!Array.isArray(reponses) || reponses.length !== QUESTIONS.length) {
+      return res.status(400).json({ erreur: 'Merci de répondre à toutes les questions.' });
+    }
+
+    const { score, bonnes, detail } = corriger(reponses);
+    await pool.query(
+      'INSERT INTO quiz_resultats (candidat_id, score, nombre_bonnes_reponses, reponses) VALUES (?, ?, ?, ?)',
+      [candidatId, score, bonnes, JSON.stringify(detail)]
+    );
+    res.status(201).json({ score, bonnes, total: QUESTIONS.length, detail });
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 

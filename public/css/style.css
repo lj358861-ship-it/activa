@@ -672,7 +672,7 @@ table.liste tr:last-child td { border-bottom: none; }
   inset: 0;
   z-index: 1;
   background-size: cover;
-  background-position: center;
+  background-position: center top;
   opacity: 0;
   transition: opacity 0.9s ease;
   display: flex;

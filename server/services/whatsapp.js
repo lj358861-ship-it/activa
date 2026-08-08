@@ -1,216 +1,72 @@
 const axios = require('axios');
 
 /*
-  Service WhatsApp Business Cloud API (Meta).
+  Service de notification WhatsApp vers l'APRJ, envoyé dès qu'un nouveau
+  candidat s'inscrit (voir routes/candidat.js -> envoyerNotificationCandidature).
 
-  IMPORTANT - à savoir avant de déployer :
-  Meta impose que toute conversation lancée PAR l'entreprise (donc pas en réponse
-  à un message reçu dans les dernières 24h) passe par un "message modèle" (template)
-  validé au préalable dans le Meta Business Manager. Un simple message texte libre
-  sera refusé si aucune conversation n'est ouverte.
+  Ce service est OPTIONNEL : tant que les variables d'environnement WhatsApp
+  ne sont pas configurées, il ne fait rien et renvoie simplement
+  { envoye: false, raison: 'configuration_incomplete' } — l'inscription du
+  candidat continue de fonctionner normalement (l'email de vérification reste
+  envoyé quoi qu'il arrive).
 
-  -> Étape à faire une seule fois dans Meta Business Manager :
-     1. Créer un template nommé comme WHATSAPP_TEMPLATE_NAME (ex: "nouvelle_candidature")
-     2. Catégorie : Utility
-     3. Corps du message avec variables, ex :
-        "Nouvelle candidature reçue sur APRJ.
-         Nom : {{1}}
-         Poste souhaité / domaine : {{2}}
-         Niveau d'étude : {{3}}
-         Téléphone : {{4}}
-         CV : {{5}}"
-     4. Attendre la validation Meta (généralement quelques heures à 1-2 jours)
-
-  Une fois validé, la fonction envoyerNotificationCandidature() ci-dessous fonctionnera
-  directement en prod. En attendant la validation du template, ce service loggue
-  l'erreur sans bloquer l'inscription du candidat (le profil reste bien enregistré en base).
+  Pour activer l'envoi WhatsApp plus tard (ex. via l'API Cloud de Meta) :
+    WHATSAPP_TOKEN=xxxxxxxx           (token d'accès permanent Meta)
+    WHATSAPP_PHONE_ID=xxxxxxxx        (ID du numéro expéditeur WhatsApp Business)
+    WHATSAPP_DESTINATAIRE=2376xxxxxxx (numéro de l'APRJ qui reçoit la notif, format international sans +)
 */
 
-const GRAPH_API_VERSION = 'v20.0';
-
-/**
- * L'API WhatsApp Cloud exige le numéro en format international, chiffres uniquement
- * (pas de "+", espaces, tirets ou parenthèses). Les candidats/employeurs saisissent
- * souvent leur numéro en format local (ex: "699 11 22 33") ou avec un "+" devant.
- * Cette fonction nettoie et ajoute l'indicatif Cameroun (237) si absent.
- */
-function normaliserTelephone(numero) {
-  if (!numero) return numero;
-  let chiffres = String(numero).replace(/[^\d]/g, '');
-  // Retire un éventuel 00 international (ex: 00237...)
-  if (chiffres.startsWith('00')) chiffres = chiffres.slice(2);
-  // Numéro local camerounais (9 chiffres, commence par 6 ou 2) sans indicatif -> on l'ajoute
-  if (chiffres.length === 9 && (chiffres.startsWith('6') || chiffres.startsWith('2'))) {
-    chiffres = '237' + chiffres;
-  }
-  return chiffres;
-}
-
-function urlEnvoiMessage() {
-  return `https://graph.facebook.com/${GRAPH_API_VERSION}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
-}
-
-function enteteAuth() {
-  return {
-    headers: {
-      Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    timeout: 10000 // évite que la requête reste bloquée indéfiniment
-  };
+function estConfigure() {
+  return Boolean(
+    process.env.WHATSAPP_TOKEN &&
+    process.env.WHATSAPP_PHONE_ID &&
+    process.env.WHATSAPP_DESTINATAIRE
+  );
 }
 
 /**
- * Envoie une notification "nouvelle candidature" au numéro WhatsApp de l'APRJ
- * via un template Meta approuvé.
+ * Envoie une notification WhatsApp à l'APRJ pour signaler une nouvelle
+ * candidature. Ne lève jamais d'exception : en cas d'échec ou d'absence de
+ * configuration, renvoie simplement { envoye: false, ... } pour ne jamais
+ * bloquer l'inscription du candidat.
  */
 async function envoyerNotificationCandidature({ nomComplet, domaine, niveauEtude, telephone, cvUrl }) {
-  if (!process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID || !process.env.ADMIN_WHATSAPP_NUMBER) {
-    console.warn('[WhatsApp] Configuration incomplète (.env) — notification non envoyée, profil quand même sauvegardé.');
+  if (!estConfigure()) {
+    console.warn('[WhatsApp] Non configuré (.env) — notification non envoyée.');
     return { envoye: false, raison: 'configuration_incomplete' };
   }
 
-  const corps = {
-    messaging_product: 'whatsapp',
-    to: normaliserTelephone(process.env.ADMIN_WHATSAPP_NUMBER),
-    type: 'template',
-    template: {
-      name: process.env.WHATSAPP_TEMPLATE_NAME || 'nouvelle_candidature',
-      language: { code: 'fr' },
-      components: [
-        {
-          type: 'body',
-          parameters: [
-            { type: 'text', text: nomComplet },
-            { type: 'text', text: domaine },
-            { type: 'text', text: niveauEtude },
-            { type: 'text', text: telephone },
-            { type: 'text', text: cvUrl || 'Non fourni' }
-          ]
-        }
-      ]
-    }
-  };
+  const texte = [
+    `📋 Nouvelle candidature APRJ`,
+    `Nom : ${nomComplet || 'N/A'}`,
+    `Domaine : ${domaine || 'N/A'}`,
+    `Niveau d'étude : ${niveauEtude || 'N/A'}`,
+    `Téléphone : ${telephone || 'N/A'}`,
+    cvUrl ? `CV : ${cvUrl}` : null
+  ].filter(Boolean).join('\n');
 
   try {
-    const reponse = await axios.post(urlEnvoiMessage(), corps, enteteAuth());
-    return { envoye: true, id: reponse.data.messages?.[0]?.id };
+    const reponse = await axios.post(
+      `https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_ID}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to: process.env.WHATSAPP_DESTINATAIRE,
+        type: 'text',
+        text: { body: texte }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      }
+    );
+    return { envoye: true, id: reponse.data?.messages?.[0]?.id };
   } catch (erreur) {
-    console.error('[WhatsApp] Échec envoi notification:', erreur.response?.data || erreur.message);
-    return { envoye: false, raison: 'erreur_api', details: erreur.response?.data || erreur.message };
+    console.error('[WhatsApp] Échec envoi:', erreur.response?.data || erreur.message);
+    return { envoye: false, raison: 'erreur_whatsapp', details: erreur.response?.data || erreur.message };
   }
 }
 
-/**
- * Envoie un message texte libre (uniquement possible si une conversation est
- * déjà ouverte dans les 24h, ex: l'admin a déjà écrit au bot).
- */
-async function envoyerMessageTexte(destinataire, texte) {
-  const corps = {
-    messaging_product: 'whatsapp',
-    to: normaliserTelephone(destinataire),
-    type: 'text',
-    text: { body: texte }
-  };
-  try {
-    const reponse = await axios.post(urlEnvoiMessage(), corps, enteteAuth());
-    return { envoye: true, id: reponse.data.messages?.[0]?.id };
-  } catch (erreur) {
-    console.error('[WhatsApp] Échec envoi texte:', erreur.response?.data || erreur.message);
-    return { envoye: false, raison: 'erreur_api' };
-  }
-}
-
-const NOMS_JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
-const NOMS_MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
-
-/**
- * Met en forme le créneau d'entretien pour l'insérer dans le message WhatsApp.
- * entretienDate est la chaîne brute MySQL "YYYY-MM-DD HH:MM:SS" (voir server/db.js,
- * dateStrings: true). On la parse à la main plutôt que via `new Date(...)` pour
- * éviter toute conversion de fuseau horaire : l'heure choisie par l'employeur
- * doit rester EXACTEMENT la même partout (dashboard, WhatsApp, email).
- */
-function formaterCreneau(entretienDate) {
-  if (!entretienDate || entretienDate === 'null' || entretienDate === 'undefined') return 'à confirmer';
-  const correspondance = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(String(entretienDate));
-  if (!correspondance) return 'à confirmer';
-  const [, annee, mois, jour, heure, minute] = correspondance;
-  // Calcul du jour de la semaine sans passer par un Date local (Date.UTC est sûr
-  // ici car on ne s'en sert que pour obtenir l'index du jour, pas une heure).
-  const indexJour = new Date(Date.UTC(Number(annee), Number(mois) - 1, Number(jour))).getUTCDay();
-  return `${NOMS_JOURS[indexJour]} ${jour} ${NOMS_MOIS[Number(mois) - 1]} ${annee} à ${heure}h${minute}`;
-}
-
-/**
- * Notifie un CANDIDAT (via template Meta approuvé) qu'une entreprise a sélectionné
- * son profil pour un poste, avec le créneau d'entretien retenu par l'employeur.
- * Nécessite un template Meta distinct de celui utilisé pour prévenir l'admin
- * (voir note en tête de fichier).
- *
- * Étape à faire une seule fois dans Meta Business Manager :
- *   1. Créer un template nommé comme WHATSAPP_TEMPLATE_SELECTION_NAME (ex: "profil_selectionne")
- *   2. Catégorie : Utility
- *   3. Corps du message avec variables, ex :
- *      "Bonjour {{1}}, l'entreprise {{2}} a sélectionné ton profil pour le poste
- *       {{3}}.
- *       Entretien prévu : {{4}}
- *       Lieu : {{5}}
- *       Informations complémentaires : {{6}}
- *       L'APRJ ou l'entreprise te contactera bientôt. Bonne chance !"
- *   4. Le template doit être approuvé par Meta AVANT que ce nouveau format à 6
- *      variables puisse être utilisé. Si un ancien template à 3 variables est
- *      encore actif côté Meta, cette fonction échouera tant que le nouveau
- *      template (avec le créneau) n'est pas validé — pense à mettre à jour
- *      WHATSAPP_TEMPLATE_SELECTION_NAME une fois le nouveau template approuvé.
- */
-async function envoyerNotificationSelection({
-  telephoneCandidat, nomCandidat, nomSociete, poste,
-  entretienDate, entretienLieu, entretienNotes
-}) {
-  if (!process.env.WHATSAPP_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) {
-    console.warn('[WhatsApp] Configuration incomplète (.env) — notification candidat non envoyée.');
-    return { envoye: false, raison: 'configuration_incomplete' };
-  }
-  if (!telephoneCandidat || !normaliserTelephone(telephoneCandidat)) {
-    console.warn('[WhatsApp] Numéro de téléphone du candidat manquant ou invalide — notification non envoyée.');
-    return { envoye: false, raison: 'telephone_manquant' };
-  }
-  const corps = {
-    messaging_product: 'whatsapp',
-    to: normaliserTelephone(telephoneCandidat),
-    type: 'template',
-    template: {
-      name: process.env.WHATSAPP_TEMPLATE_SELECTION_NAME || 'profil_selectionne',
-      language: { code: 'fr' },
-      components: [
-        {
-          type: 'body',
-          parameters: [
-            { type: 'text', text: nomCandidat },
-            { type: 'text', text: nomSociete },
-            { type: 'text', text: poste },
-            { type: 'text', text: formaterCreneau(entretienDate) },
-            { type: 'text', text: entretienLieu || 'à confirmer' },
-            { type: 'text', text: entretienNotes || 'aucune' }
-          ]
-        }
-      ]
-    }
-  };
-  try {
-    const reponse = await axios.post(urlEnvoiMessage(), corps, enteteAuth());
-    return { envoye: true, id: reponse.data.messages?.[0]?.id };
-  } catch (erreur) {
-    console.error('[WhatsApp] Échec envoi notification sélection:', erreur.response?.data || erreur.message);
-    return { envoye: false, raison: 'erreur_api', details: erreur.response?.data || erreur.message };
-  }
-}
-
-module.exports = {
-  envoyerNotificationCandidature,
-  envoyerMessageTexte,
-  envoyerNotificationSelection,
-  normaliserTelephone,
-  formaterCreneau
-};
+module.exports = { envoyerNotificationCandidature };

@@ -218,11 +218,11 @@ async function afficherBanniereQuiz() {
     if (donnees.deja_complete) {
       carte.style.background = '#EAF6EF';
       carte.style.border = '1px solid #bfe3cd';
-      carte.innerHTML = `<p style="margin:0;">✅ <strong>Test d'aptitude terminé</strong> — ton score : <strong>${donnees.resultat.score}/200</strong>. <a href="/quiz-candidat.html">Voir le détail</a></p>`;
+      carte.innerHTML = `<p style="margin:0;">✅ <strong>Test d'aptitude terminé</strong> — ton score : <strong>${donnees.resultat.score}/300</strong>. <a href="/quiz-candidat.html">Voir le détail</a></p>`;
     } else {
       carte.style.background = '#fff8e6';
       carte.style.border = '1px solid #e8c874';
-      carte.innerHTML = `<p style="margin:0;">📝 <strong>Test d'aptitude professionnelle non complété.</strong> 15 questions rapides, ça ne prend que quelques minutes. <a href="/quiz-candidat.html" class="btn btn-or" style="margin-left:8px; padding:6px 16px; font-size:0.85rem;">Commencer le test</a></p>`;
+      carte.innerHTML = `<p style="margin:0;">📝 <strong>Test d'aptitude professionnelle non complété.</strong> 30 questions + 5 questions sur tes objectifs de carrière, ça prend une quinzaine de minutes. <a href="/quiz-candidat.html" class="btn btn-or" style="margin-left:8px; padding:6px 16px; font-size:0.85rem;">Commencer le test</a></p>`;
     }
   } catch (err) { /* silencieux */ }
 }

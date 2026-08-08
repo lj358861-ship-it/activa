@@ -52,15 +52,15 @@
   <div class="conteneur" style="max-width:640px;">
     <div class="section-titre">
       <h2>Test d'aptitude professionnelle</h2>
-      <p>15 questions rapides pour mieux cerner ton profil auprès des entreprises. Une seule tentative, prends ton temps.</p>
+      <p>30 questions rapides (culture professionnelle + questions sur ton domaine) pour mieux cerner ton profil auprès des entreprises, suivies de 5 questions sur tes objectifs de carrière. Une seule tentative, prends ton temps.</p>
     </div>
 
-    <div id="zoneChargement" class="carte-formulaire" style="text-align:center;"><p>Chargement du quiz...</p></div>
+    <div id="zoneChargement" class="carte-formulaire" style="text-align:center;"><p>Chargement du test...</p></div>
 
     <!-- Écran "déjà passé" -->
     <div id="vueDejaComplete" class="carte-formulaire" style="display:none; max-width:460px; margin:0 auto;">
       <div class="quiz-resultat">
-        <div class="quiz-score-cercle"><strong id="scoreDejaComplete">0</strong><span>sur 200</span></div>
+        <div class="quiz-score-cercle"><strong id="scoreDejaComplete">0</strong><span>sur 300</span></div>
         <p style="font-weight:700; color:var(--marine); margin-bottom:6px;">Tu as déjà passé ce test.</p>
         <p style="font-size:0.88rem; color:var(--ardoise-douce);" id="detailDejaComplete"></p>
         <a href="/dashboard-candidat.html" class="btn btn-marine" style="margin-top:16px;">Retour à mon espace</a>
@@ -69,16 +69,26 @@
 
     <!-- Écran du quiz en cours -->
     <div id="vueQuiz" class="carte-formulaire" style="display:none;">
-      <div class="quiz-compteur">Question <span id="numeroQuestion">1</span> / <span id="totalQuestions">15</span></div>
+      <div class="quiz-compteur">Question <span id="numeroQuestion">1</span> / <span id="totalQuestions">30</span></div>
       <div class="quiz-barre-progres"><div class="quiz-barre-progres-remplissage" id="barreProgres" style="width:0%;"></div></div>
       <p class="quiz-question" id="texteQuestion"></p>
       <div class="quiz-options" id="zoneOptions"></div>
     </div>
 
+    <!-- Écran des questions bonus (objectifs de carrière, non notées) -->
+    <div id="vueBonus" class="carte-formulaire" style="display:none;">
+      <div class="section-titre" style="text-align:left; margin-bottom:16px;">
+        <h3 style="margin:0 0 6px;">Pour finir — parlons de ton avenir 🎯</h3>
+        <p style="margin:0; font-size:0.9rem; color:var(--ardoise-douce);">Ces 5 questions ne sont pas notées. Tes réponses sont simplement ajoutées à ton profil pour aider les entreprises à mieux te connaître.</p>
+      </div>
+      <div id="zoneBonus"></div>
+      <button type="button" class="btn btn-or btn-large" style="margin-top:12px;" id="btnTerminerBonus" onclick="soumettreQuiz()">Terminer le test</button>
+    </div>
+
     <!-- Écran de résultat final -->
     <div id="vueResultat" class="carte-formulaire" style="display:none; max-width:460px; margin:0 auto;">
       <div class="quiz-resultat">
-        <div class="quiz-score-cercle"><strong id="scoreFinal">0</strong><span>sur 200</span></div>
+        <div class="quiz-score-cercle"><strong id="scoreFinal">0</strong><span>sur 300</span></div>
         <p style="font-weight:700; color:var(--marine); margin-bottom:6px;" id="titreResultat"></p>
         <p style="font-size:0.88rem; color:var(--ardoise-douce);" id="detailResultat"></p>
         <a href="/dashboard-candidat.html" class="btn btn-or btn-large" style="margin-top:18px;">Retour à mon espace</a>
@@ -95,6 +105,7 @@ exigerRole('candidat');
 
 const LETTRES = ['A', 'B', 'C', 'D'];
 let questions = [];
+let questionsBonus = [];
 let indexActuel = 0;
 let reponsesDonnees = []; // [{id, choix}]
 let enAttenteAnimation = false;
@@ -108,11 +119,12 @@ async function demarrer() {
       document.getElementById('vueDejaComplete').style.display = 'block';
       document.getElementById('scoreDejaComplete').textContent = donnees.resultat.score;
       document.getElementById('detailDejaComplete').textContent =
-        `${donnees.resultat.nombre_bonnes_reponses} bonnes réponses sur 15, le ${new Date(donnees.resultat.created_at).toLocaleDateString('fr-FR')}.`;
+        `${donnees.resultat.nombre_bonnes_reponses} bonnes réponses sur ${donnees.resultat.total_questions || 30}, le ${new Date(donnees.resultat.created_at).toLocaleDateString('fr-FR')}.`;
       return;
     }
 
     questions = donnees.questions;
+    questionsBonus = donnees.questions_bonus || [];
     document.getElementById('totalQuestions').textContent = questions.length;
     document.getElementById('vueQuiz').style.display = 'block';
     afficherQuestion();
@@ -171,17 +183,37 @@ async function choisirReponse(choix) {
       afficherQuestion();
     } else {
       document.getElementById('barreProgres').style.width = '100%';
-      await soumettreQuiz();
+      afficherBonus();
     }
   }, 850);
 }
 
-async function soumettreQuiz() {
+function afficherBonus() {
   document.getElementById('vueQuiz').style.display = 'none';
+  document.getElementById('vueBonus').style.display = 'block';
+  const zone = document.getElementById('zoneBonus');
+  zone.innerHTML = questionsBonus.map((q, i) => `
+    <div class="champ" style="margin-bottom:16px;">
+      <label for="bonus_${q.id}">${i + 1}. ${q.question}</label>
+      <textarea id="bonus_${q.id}" rows="2" placeholder="Ta réponse (facultatif)"></textarea>
+    </div>
+  `).join('');
+}
+
+async function soumettreQuiz() {
+  const reponsesBonus = questionsBonus.map((q) => ({
+    id: q.id,
+    reponse: (document.getElementById(`bonus_${q.id}`)?.value || '').trim()
+  }));
+
+  document.getElementById('vueBonus').style.display = 'none';
   document.getElementById('zoneChargement').style.display = 'block';
   document.getElementById('zoneChargement').innerHTML = '<p>Calcul de ton score...</p>';
   try {
-    const resultat = await appelApi('/candidats/quiz', { method: 'POST', corpsJson: { reponses: reponsesDonnees } });
+    const resultat = await appelApi('/candidats/quiz', {
+      method: 'POST',
+      corpsJson: { reponses: reponsesDonnees, reponses_bonus: reponsesBonus }
+    });
     document.getElementById('zoneChargement').style.display = 'none';
     document.getElementById('vueResultat').style.display = 'block';
     document.getElementById('scoreFinal').textContent = resultat.score;

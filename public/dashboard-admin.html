@@ -838,7 +838,7 @@ function afficherTableauCandidats(candidats, conteneur) {
   }
   conteneur.innerHTML = `
     <table class="liste">
-      <thead><tr><th>Identifiant</th><th>Nom</th><th>Téléphone</th><th>Domaine</th><th>Niveau</th><th>Ville</th><th>WhatsApp envoyé</th><th></th></tr></thead>
+      <thead><tr><th>Identifiant</th><th>Nom</th><th>Téléphone</th><th>Domaine</th><th>Niveau</th><th>Ville</th><th>Test d'aptitude</th><th>WhatsApp envoyé</th><th></th></tr></thead>
       <tbody>
         ${candidats.map((c) => `
           <tr>
@@ -848,6 +848,7 @@ function afficherTableauCandidats(candidats, conteneur) {
             <td>${c.domaine}</td>
             <td>${c.niveau_etude}</td>
             <td>${c.ville || '—'}</td>
+            <td>${c.quiz_score != null ? `<strong>${c.quiz_score}</strong>/${c.quiz_total || 300}` : '<span style="color:var(--ardoise-douce);">Non complété</span>'}</td>
             <td>${c.whatsapp_envoye ? '✅' : '—'}</td>
             <td style="white-space:nowrap;">
               <button class="btn btn-marine" onclick="ouvrirFicheCandidat(${c.id})">Voir la fiche</button>
@@ -889,6 +890,8 @@ function ouvrirFicheCandidat(id) {
 
 function afficherFicheCandidat(c) {
   const contenu = document.getElementById('contenuFicheCandidat');
+  let bonus = [];
+  try { bonus = c.quiz_bonus ? (typeof c.quiz_bonus === 'string' ? JSON.parse(c.quiz_bonus) : c.quiz_bonus) : []; } catch (e) { bonus = []; }
   contenu.innerHTML = `
     <div style="display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; margin-bottom:18px;">
       ${c.photo_path
@@ -896,6 +899,9 @@ function afficherFicheCandidat(c) {
         : `<div style="width:160px; height:160px; border-radius:12px; background:var(--ivoire); display:flex; align-items:center; justify-content:center; font-size:3rem;">👤</div>`}
       <div style="flex:1; min-width:220px;">
         <span class="etiquette etiquette-valide" style="margin-bottom:8px; display:inline-block;">${c.code_candidat || ('ID #' + c.id)}</span>
+        ${c.quiz_score != null
+          ? `<span class="etiquette etiquette-attente" style="margin-bottom:8px; margin-left:8px; display:inline-block;">Test d'aptitude : ${c.quiz_score}/${c.quiz_total || 300}</span>`
+          : `<span class="etiquette" style="margin-bottom:8px; margin-left:8px; display:inline-block; color:var(--rouge);">Test d'aptitude non complété</span>`}
         <h2 style="margin:0 0 6px;">${c.nom_complet}</h2>
         <p style="margin:0 0 4px;">${c.domaine} — ${c.niveau_etude}</p>
         <p style="margin:0 0 4px; color:var(--ardoise-douce);">${c.ville || 'Ville non renseignée'}</p>
@@ -906,6 +912,12 @@ function afficherFicheCandidat(c) {
     ${c.parcours_pedagogique ? `<p><strong>Parcours pédagogique</strong><br>${c.parcours_pedagogique}</p>` : ''}
     ${c.parcours_professionnel ? `<p><strong>Parcours professionnel</strong><br>${c.parcours_professionnel}</p>` : ''}
     ${c.atouts ? `<p><strong>Atouts</strong><br>${c.atouts}</p>` : ''}
+    ${bonus.length ? `
+      <div style="margin-top:14px; padding:14px; background:var(--ivoire); border-radius:10px;">
+        <p style="margin:0 0 8px;"><strong>À propos du candidat — objectifs de carrière</strong></p>
+        ${bonus.map((b) => `<p style="margin:0 0 8px;"><em>${b.question}</em><br>${b.reponse}</p>`).join('')}
+      </div>
+    ` : ''}
     <p><strong>Documents</strong></p>
     <p style="display:flex; gap:16px; flex-wrap:wrap;">
       ${c.cv_path ? `<a href="/uploads/${c.cv_path}" target="_blank" class="btn btn-contour">Voir le CV</a>` : ''}
@@ -1233,7 +1245,14 @@ async function confirmerEnvoiAvecRdv() {
     fermerModalRdvPaiement();
     chargerSelections();
   } catch (err) {
-    alert(err.message);
+    // Ce garde-fou (statut déjà changé entre-temps : rendez-vous déjà fixé,
+    // annulé ou traité par ailleurs) se produit quand la liste affichée à
+    // l'écran est périmée. On la rafraîchit automatiquement pour que
+    // l'admin voie tout de suite l'état réel, plutôt que de rester bloqué
+    // sur une action qui ne peut plus aboutir.
+    alert(err.message + '\n\nLa liste va être actualisée pour refléter l\'état actuel de ce dossier.');
+    fermerModalRdvPaiement();
+    chargerSelections();
   } finally {
     bouton.disabled = false;
     bouton.textContent = 'Confirmer et envoyer le mail';

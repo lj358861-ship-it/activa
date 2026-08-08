@@ -142,6 +142,25 @@ function construireHtmlEntretien({
   `;
 }
 
+/**
+ * Mail de vérification d'adresse email, envoyé juste après la création du
+ * compte (candidat ou employeur). Contient le code alphanumérique à saisir
+ * sur le site pour confirmer que l'adresse appartient bien à la personne.
+ */
+async function envoyerEmailVerification({ email, nomComplet, code }) {
+  const html = `
+    <p>Bonjour ${nomComplet || ''},</p>
+    <p>Merci de ton inscription sur la plateforme de l'Association A.P.R.J.</p>
+    <p>Pour confirmer que cette adresse email t'appartient bien, saisis le code suivant sur le site :</p>
+    <div style="border:2px solid #0B1F3A; background:#F7F5F1; padding:16px 20px; margin:16px 0; border-radius:8px; text-align:center;">
+      <span style="font-size:1.6rem; font-weight:700; letter-spacing:4px; color:#0B1F3A;">${code}</span>
+    </div>
+    <p>Ce code est valable ${require('./verification').DUREE_VALIDITE_MINUTES} minutes. Si tu n'es pas à l'origine de cette inscription, ignore simplement cet email.</p>
+    <p>À bientôt !<br>L'équipe APRJ</p>
+  `;
+  return envoyerHtml({ emailCandidat: email, sujet: 'Ton code de vérification APRJ', html });
+}
+
 function extraireNomEtEmailExpediteur() {
   const brut = process.env.SMTP_EXPEDITEUR || process.env.SMTP_UTILISATEUR || '';
   const correspondance = brut.match(/^(.*)<(.+)>$/);
@@ -257,6 +276,7 @@ async function envoyerEmailEntretien({
 module.exports = {
   envoyerEmailRdvPaiement,
   envoyerEmailEntretien,
+  envoyerEmailVerification,
   diplomesRequis,
   FRAIS_DOSSIER_FCFA,
   FRAIS_FORMATION_ENTRETIEN_FCFA

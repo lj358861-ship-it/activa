@@ -663,16 +663,20 @@ table.liste tr:last-child td { border-bottom: none; }
 .carrousel-hero {
   position: relative;
   min-height: 420px;
+  /* Hauteur proportionnelle à la largeur de l'écran (format large sur PC),
+     plafonnée pour ne pas devenir démesurée sur les très grands écrans. */
+  height: 44vw;
+  max-height: 620px;
   overflow: hidden;
   background: linear-gradient(135deg, var(--marine) 0%, var(--marine-2) 60%, #1B3A63 100%);
 }
-.carrousel-vide { min-height: 260px; }
+.carrousel-vide { min-height: 260px; height: 260px; }
 .carrousel-diapo {
   position: absolute;
   inset: 0;
   z-index: 1;
   background-size: cover;
-  background-position: center top;
+  background-position: center center;
   opacity: 0;
   transition: opacity 0.9s ease;
   display: flex;
@@ -1017,7 +1021,7 @@ a:focus-visible, .btn:focus-visible, .onglet:focus-visible { outline: 2px solid 
   .escalier-marche:nth-child(2) { margin-left: 14px; }
   .escalier-marche:nth-child(3) { margin-left: 28px; }
   .escalier-marche:nth-child(4) { margin-left: 42px; }
-  .carrousel-hero { min-height: 380px; }
+  .carrousel-hero { height: 380px; min-height: 380px; }
 }
 
 /* ===== Responsive : mobile / menu burger ===== */
@@ -1063,7 +1067,7 @@ a:focus-visible, .btn:focus-visible, .onglet:focus-visible { outline: 2px solid 
   .escalier-marche:nth-child(2) { margin-left: 12px; }
   .escalier-marche:nth-child(3) { margin-left: 24px; }
   .escalier-marche:nth-child(4) { margin-left: 36px; }
-  .carrousel-hero { min-height: 340px; }
+  .carrousel-hero { height: 340px; min-height: 340px; }
   .carrousel-texte p { display: block; }
   .section { padding: 48px 0; }
   .hero-actions { flex-direction: column; align-items: stretch; }
@@ -1077,7 +1081,7 @@ a:focus-visible, .btn:focus-visible, .onglet:focus-visible { outline: 2px solid 
   .marque { font-size: 1.15rem; gap: 9px; }
   .marque-logo { width: 36px; height: 36px; }
   .marque small { font-size: 0.58rem; }
-  .carrousel-hero { min-height: 300px; }
+  .carrousel-hero { height: 300px; min-height: 300px; }
   .carrousel-texte p { max-width: 100%; }
   .section { padding: 40px 0; }
   .carte, .choix-carte, .carte-formulaire { padding: 20px; }

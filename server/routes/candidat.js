@@ -9,7 +9,10 @@ const { enregistrerFichier } = require('../services/fichiers');
 const { genererCodeCandidat } = require('../services/identifiants');
 const { genererCodeVerification, DUREE_VALIDITE_MINUTES } = require('../services/verification');
 const { envoyerEmailVerification } = require('../services/email');
-const { questionsPubliques, corriger, QUESTIONS } = require('../data/quiz-aptitude');
+const {
+  questionsPubliques, questionsBonusPubliques, toutesLesQuestions,
+  corriger, formaterReponsesBonus
+} = require('../data/quiz-aptitude');
 
 const router = express.Router();
 
@@ -218,58 +221,77 @@ router.post('/notifications/:id/lu', verifierToken, autoriserRoles('candidat'), 
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 
-// ===== Quiz d'aptitude professionnelle (une seule tentative par candidat) =====
+// ===== Test d'aptitude professionnelle (une seule tentative par candidat) =====
+// 30 questions QCM notées sur 300 points (15 communes + 15 propres au domaine
+// choisi par le candidat à l'inscription) + 5 questions bonus non notées sur
+// ses objectifs de carrière, ajoutées à son profil ("À propos du candidat").
 
 // Récupère les questions (sans les bonnes réponses) + indique si déjà passé.
 router.get('/quiz', verifierToken, autoriserRoles('candidat'), async (req, res) => {
   try {
-    const [candRows] = await pool.query('SELECT id FROM candidats WHERE user_id = ?', [req.utilisateur.id]);
+    const [candRows] = await pool.query('SELECT id, domaine FROM candidats WHERE user_id = ?', [req.utilisateur.id]);
     if (!candRows.length) return res.status(404).json({ erreur: 'Profil candidat introuvable.' });
 
     const [resultatExistant] = await pool.query(
-      'SELECT score, nombre_bonnes_reponses, created_at FROM quiz_resultats WHERE candidat_id = ?',
+      'SELECT score, nombre_bonnes_reponses, total_questions, created_at FROM quiz_resultats WHERE candidat_id = ?',
       [candRows[0].id]
     );
     if (resultatExistant.length) {
       return res.json({ deja_complete: true, resultat: resultatExistant[0] });
     }
-    res.json({ deja_complete: false, questions: questionsPubliques() });
+    res.json({
+      deja_complete: false,
+      questions: questionsPubliques(candRows[0].domaine),
+      questions_bonus: questionsBonusPubliques()
+    });
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 
 // Vérifie une réponse à la volée (pour l'animation vert/rouge immédiate),
 // sans jamais exposer la banque complète des bonnes réponses au client.
-router.post('/quiz/verifier', verifierToken, autoriserRoles('candidat'), (req, res) => {
-  const { id, choix } = req.body;
-  const question = QUESTIONS.find((q) => q.id === id);
-  if (!question) return res.status(400).json({ erreur: 'Question inconnue.' });
-  res.json({ correct: choix === question.correcte, correcte: question.correcte });
+router.post('/quiz/verifier', verifierToken, autoriserRoles('candidat'), async (req, res) => {
+  try {
+    const [candRows] = await pool.query('SELECT domaine FROM candidats WHERE user_id = ?', [req.utilisateur.id]);
+    if (!candRows.length) return res.status(404).json({ erreur: 'Profil candidat introuvable.' });
+
+    const { id, choix } = req.body;
+    const question = toutesLesQuestions(candRows[0].domaine).find((q) => q.id === id);
+    if (!question) return res.status(400).json({ erreur: 'Question inconnue.' });
+    res.json({ correct: choix === question.correcte, correcte: question.correcte });
+  } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 
 // Soumission finale : recalcule le score côté serveur (jamais confiance au
-// client) et enregistre le résultat. Une seule tentative possible.
+// client) et enregistre le résultat + les réponses bonus. Une seule
+// tentative possible.
 router.post('/quiz', verifierToken, autoriserRoles('candidat'), async (req, res) => {
   try {
-    const [candRows] = await pool.query('SELECT id FROM candidats WHERE user_id = ?', [req.utilisateur.id]);
+    const [candRows] = await pool.query('SELECT id, domaine FROM candidats WHERE user_id = ?', [req.utilisateur.id]);
     if (!candRows.length) return res.status(404).json({ erreur: 'Profil candidat introuvable.' });
     const candidatId = candRows[0].id;
+    const domaine = candRows[0].domaine;
 
     const [existant] = await pool.query('SELECT id FROM quiz_resultats WHERE candidat_id = ?', [candidatId]);
     if (existant.length) {
-      return res.status(409).json({ erreur: 'Tu as déjà passé ce quiz, une seule tentative est autorisée.' });
+      return res.status(409).json({ erreur: 'Tu as déjà passé ce test, une seule tentative est autorisée.' });
     }
 
-    const { reponses } = req.body;
-    if (!Array.isArray(reponses) || reponses.length !== QUESTIONS.length) {
+    const { reponses, reponses_bonus } = req.body;
+    const questionsAttendues = toutesLesQuestions(domaine).length;
+    if (!Array.isArray(reponses) || reponses.length !== questionsAttendues) {
       return res.status(400).json({ erreur: 'Merci de répondre à toutes les questions.' });
     }
 
-    const { score, bonnes, detail } = corriger(reponses);
+    const { score, bonnes, total, detail } = corriger(reponses, domaine);
+    const bonusFormate = formaterReponsesBonus(reponses_bonus);
+
     await pool.query(
-      'INSERT INTO quiz_resultats (candidat_id, score, nombre_bonnes_reponses, reponses) VALUES (?, ?, ?, ?)',
-      [candidatId, score, bonnes, JSON.stringify(detail)]
+      `INSERT INTO quiz_resultats
+       (candidat_id, score, nombre_bonnes_reponses, total_questions, domaine_teste, reponses, reponses_bonus)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [candidatId, score, bonnes, total, domaine || null, JSON.stringify(detail), JSON.stringify(bonusFormate)]
     );
-    res.status(201).json({ score, bonnes, total: QUESTIONS.length, detail });
+    res.status(201).json({ score, bonnes, total, detail, reponses_bonus: bonusFormate });
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 

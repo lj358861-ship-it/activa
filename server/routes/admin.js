@@ -62,13 +62,18 @@ router.post('/employeurs/:id/refuser', async (req, res) => {
   }
 });
 
-// Liste de tous les candidats enregistrés
+// Liste de tous les candidats enregistrés (avec le résultat du test
+// d'aptitude s'il a été passé : score /300 + réponses bonus carrière).
 router.get('/candidats', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT c.*, u.telephone, u.email
+      `SELECT c.*, u.telephone, u.email,
+              qr.score AS quiz_score, qr.nombre_bonnes_reponses AS quiz_bonnes,
+              qr.total_questions AS quiz_total, qr.domaine_teste AS quiz_domaine,
+              qr.reponses_bonus AS quiz_bonus, qr.created_at AS quiz_date
        FROM candidats c
        JOIN users u ON u.id = c.user_id
+       LEFT JOIN quiz_resultats qr ON qr.candidat_id = c.id
        ORDER BY c.created_at DESC`
     );
     res.json({ candidats: rows });
@@ -88,9 +93,13 @@ router.get('/candidats/code/:code', async (req, res) => {
   }
   try {
     const [rows] = await pool.query(
-      `SELECT c.*, u.telephone, u.email
+      `SELECT c.*, u.telephone, u.email,
+              qr.score AS quiz_score, qr.nombre_bonnes_reponses AS quiz_bonnes,
+              qr.total_questions AS quiz_total, qr.domaine_teste AS quiz_domaine,
+              qr.reponses_bonus AS quiz_bonus, qr.created_at AS quiz_date
        FROM candidats c
        JOIN users u ON u.id = c.user_id
+       LEFT JOIN quiz_resultats qr ON qr.candidat_id = c.id
        WHERE c.code_candidat = ?`,
       [code]
     );

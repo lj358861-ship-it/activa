@@ -417,12 +417,15 @@ function ouvrirFicheCandidatEmployeur(id) {
           <span class="etiquette ${c.diplome_path ? 'etiquette-valide' : 'etiquette-attente'}">${c.diplome_path ? '🎓 Diplôme fourni' : '🎓 Diplôme non fourni'}</span>
         </p>
         <p style="margin:0 0 4px; color:var(--ardoise-douce);">${c.ville || 'Ville non renseignée'}</p>
-        ${c.score_correspondance ? `<p style="margin:0;">Correspondance : <span class="etiquette etiquette-score">${c.score_correspondance}%</span></p>` : ''}
+        ${c.score_correspondance ? `<p style="margin:0 0 4px;">Correspondance : <span class="etiquette etiquette-score">${c.score_correspondance}%</span></p>` : ''}
+        ${c.score_test !== null && c.score_test !== undefined
+          ? `<p style="margin:0;">Test d'aptitude : <span class="etiquette etiquette-score">${c.score_test}/300</span> (${c.bonnes_reponses_test}/30 bonnes réponses)</p>`
+          : `<p style="margin:0; color:var(--ardoise-douce);">Test d'aptitude non passé.</p>`}
       </div>
     </div>
+    ${c.atouts ? `<p><strong>À propos (atouts)</strong><br>${c.atouts}</p>` : ''}
     ${c.parcours_pedagogique ? `<p><strong>Parcours pédagogique</strong><br>${c.parcours_pedagogique}</p>` : ''}
     ${c.parcours_professionnel ? `<p><strong>Parcours professionnel</strong><br>${c.parcours_professionnel}</p>` : ''}
-    ${c.atouts ? `<p><strong>Atouts</strong><br>${c.atouts}</p>` : ''}
     <p><strong>Documents</strong></p>
     <p style="display:flex; gap:16px; flex-wrap:wrap;">
       ${c.cv_path ? `<a href="/uploads/${c.cv_path}" target="_blank" class="btn btn-contour">Voir le CV</a>` : ''}

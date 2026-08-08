@@ -99,6 +99,11 @@
         <input type="tel" id="telephone_societe" name="telephone_societe" placeholder="Numéro officiel de l'entreprise" required>
         <div class="aide">Ce numéro sert à vérifier que le compte représente bien la société.</div>
       </div>
+      <div class="champ">
+        <label for="rccm">Numéro RCCM</label>
+        <input type="text" id="rccm" name="rccm" placeholder="Ex : RC/DLA/2020/B/1234" pattern="^[A-Za-z0-9][A-Za-z0-9/\-\s]{4,30}[A-Za-z0-9]$" title="Format RCCM invalide (ex : RC/DLA/2020/B/1234)" style="text-transform:uppercase;">
+        <div class="aide">Registre du Commerce et du Crédit Mobilier — format alphanumérique (ex : RC/DLA/2020/B/1234).</div>
+      </div>
 
       <button type="submit" class="btn btn-or btn-large btn-bloc" id="btnEnvoyer">Créer mon compte entreprise</button>
     </form>

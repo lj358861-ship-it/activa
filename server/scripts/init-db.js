@@ -164,13 +164,33 @@ async function initialiserBaseDeDonnees() {
     console.log('[init-db] Colonnes rdv_paiement_envoye_le/annule_le/rejete_le ajoutées à mises_en_relation.');
   }
 
+  // Migration : vérification d'adresse email par code aléatoire envoyé via Brevo.
+  // IMPORTANT : les comptes déjà existants sont automatiquement marqués comme
+  // vérifiés (email_verifie = TRUE) pour ne bloquer aucun utilisateur actuel —
+  // seuls les NOUVEAUX comptes créés après cette migration devront vérifier leur email.
+  const [colonnesVerif] = await connection.query(
+    `SELECT COUNT(*) AS n FROM information_schema.columns
+     WHERE table_schema = ? AND table_name = 'users' AND column_name = 'email_verifie'`,
+    [database]
+  );
+  if (colonnesVerif[0].n === 0) {
+    await connection.query(
+      `ALTER TABLE users
+       ADD COLUMN email_verifie BOOLEAN DEFAULT FALSE,
+       ADD COLUMN code_verification VARCHAR(10) NULL,
+       ADD COLUMN code_verification_expire DATETIME NULL`
+    );
+    await connection.query('UPDATE users SET email_verifie = TRUE');
+    console.log('[init-db] Colonnes de vérification email ajoutées à users (comptes existants marqués comme vérifiés).');
+  }
+
   // Créer le compte admin par défaut s'il n'existe pas
   const [rows] = await connection.query('SELECT id FROM users WHERE role = "admin" LIMIT 1');
   if (rows.length === 0) {
     const tempPassword = 'ChangeMoi123!';
     const hash = await bcrypt.hash(tempPassword, 10);
     await connection.query(
-      'INSERT INTO users (role, email, password_hash, telephone) VALUES ("admin", "admin@aprj.org", ?, "0000000000")',
+      'INSERT INTO users (role, email, password_hash, telephone, email_verifie) VALUES ("admin", "admin@aprj.org", ?, "0000000000", TRUE)',
       [hash]
     );
     console.log('[init-db] Compte admin créé -> email: admin@aprj.org | mot de passe temporaire: ' + tempPassword);

@@ -31,7 +31,7 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; overflow-x: hidden; }
 
 body {
   margin: 0;
@@ -138,6 +138,125 @@ a { color: inherit; text-decoration: none; }
 
 /* ---- Actions d'en-tête (nav + CTA) & menu mobile ---- */
 .entete-actions { display: flex; align-items: center; gap: 28px; }
+
+/* ---- Cloche de notifications ---- */
+.cloche-enveloppe { position: relative; }
+.cloche-bouton {
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16);
+  color: var(--blanc); width: 38px; height: 38px; border-radius: 50%;
+  font-size: 1rem; cursor: pointer; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s ease;
+}
+.cloche-bouton:hover { background: rgba(255,255,255,0.16); }
+.cloche-badge {
+  position: absolute; top: -4px; right: -4px;
+  background: var(--rouge); color: var(--blanc); font-size: 0.65rem; font-weight: 700;
+  min-width: 17px; height: 17px; border-radius: 9px; padding: 0 4px;
+  align-items: center; justify-content: center; border: 2px solid var(--marine);
+}
+@keyframes clocheAgite { 0%,100%{transform:rotate(0);} 20%{transform:rotate(-14deg);} 40%{transform:rotate(12deg);} 60%{transform:rotate(-8deg);} 80%{transform:rotate(6deg);} }
+.cloche-agitee { animation: clocheAgite 0.6s ease; }
+.cloche-panneau {
+  position: absolute; top: 48px; right: 0; width: 320px; max-height: 420px;
+  background: var(--blanc); border-radius: var(--rayon-lg); box-shadow: var(--ombre-lg);
+  border: 1px solid var(--bordure); overflow: hidden; z-index: 200;
+  display: flex; flex-direction: column;
+}
+.cloche-panneau-entete {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--bordure); color: var(--marine);
+}
+.cloche-panneau-entete button {
+  background: none; border: none; color: var(--or-fonce); font-size: 0.78rem;
+  font-weight: 600; cursor: pointer;
+}
+.cloche-panneau-liste { overflow-y: auto; padding: 6px; }
+.cloche-item { padding: 10px 10px; border-radius: 10px; position: relative; }
+.cloche-item.non-lue { background: rgba(232,163,61,0.08); }
+.cloche-item.non-lue::before {
+  content: ''; position: absolute; left: 3px; top: 16px; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--or);
+}
+.cloche-item-titre { margin: 0 0 3px 12px; font-weight: 700; font-size: 0.86rem; color: var(--marine); }
+.cloche-item-message { margin: 0 0 3px 12px; font-size: 0.8rem; color: var(--ardoise-douce); white-space: pre-line; }
+.cloche-item-date { margin: 0 0 0 12px; font-size: 0.7rem; color: #9aa2ac; }
+.cloche-vide { text-align: center; padding: 24px 10px; font-size: 0.85rem; color: var(--ardoise-douce); }
+
+/* ---- Stepper de suivi de candidature ---- */
+.candidature-carte { background: var(--blanc); border: 1px solid var(--bordure); border-radius: var(--rayon-lg); padding: 22px 24px; margin-bottom: 18px; box-shadow: var(--ombre); }
+.candidature-entete { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.candidature-entete h3 { margin: 0 0 2px; }
+.candidature-entete p { margin: 0; font-size: 0.85rem; color: var(--ardoise-douce); }
+.stepper { display: flex; align-items: flex-start; }
+.stepper-etape { flex: 1; text-align: center; position: relative; }
+.stepper-etape:not(:last-child)::after {
+  content: ''; position: absolute; top: 15px; left: 50%; width: 100%; height: 3px;
+  background: var(--bordure); z-index: 0;
+}
+.stepper-etape.franchie:not(:last-child)::after { background: var(--degrade-or); }
+.stepper-point {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--blanc); border: 3px solid var(--bordure);
+  display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; position: relative; z-index: 1;
+  font-size: 0.85rem; color: var(--ardoise-douce); font-weight: 700; transition: all 0.3s ease;
+}
+.stepper-etape.franchie .stepper-point { background: var(--degrade-or); border-color: var(--or); color: var(--marine); }
+.stepper-etape.courante .stepper-point { border-color: var(--marine); background: var(--marine); color: var(--blanc); box-shadow: 0 0 0 4px rgba(11,31,58,0.14); }
+.stepper-etape.rejetee .stepper-point { background: var(--rouge); border-color: var(--rouge); color: var(--blanc); }
+.stepper-label { font-size: 0.72rem; color: var(--ardoise-douce); font-weight: 600; max-width: 90px; margin: 0 auto; line-height: 1.3; }
+.stepper-etape.franchie .stepper-label, .stepper-etape.courante .stepper-label { color: var(--marine); }
+.candidature-detail { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--bordure); font-size: 0.86rem; color: var(--ardoise-douce); }
+@media (max-width: 560px) { .stepper-label { font-size: 0.62rem; max-width: 64px; } .stepper-point { width: 26px; height: 26px; } }
+
+/* ---- Écran de vérification par code (inscription / connexion) ---- */
+.verif-code-groupe { display: flex; gap: 8px; justify-content: center; margin: 18px 0; flex-wrap: wrap; }
+.verif-code-groupe input {
+  width: 44px; height: 54px; text-align: center; font-size: 1.3rem; font-weight: 700;
+  text-transform: uppercase; border: 1.5px solid var(--bordure); border-radius: 10px;
+  color: var(--marine); background: var(--ivoire); transition: border-color 0.2s, box-shadow 0.2s;
+}
+.verif-code-groupe input:focus { outline: none; border-color: var(--or); box-shadow: 0 0 0 3px rgba(232,163,61,0.2); background: var(--blanc); }
+.verif-icone { width: 64px; height: 64px; border-radius: 50%; background: var(--degrade-or); display: flex; align-items: center; justify-content: center; font-size: 1.7rem; margin: 0 auto 14px; box-shadow: var(--ombre-or); }
+
+/* ---- Quiz d'aptitude ---- */
+.quiz-barre-progres { height: 8px; background: var(--bordure); border-radius: 6px; overflow: hidden; margin-bottom: 22px; }
+.quiz-barre-progres-remplissage { height: 100%; background: var(--degrade-or); border-radius: 6px; transition: width 0.4s cubic-bezier(.2,.8,.3,1); }
+.quiz-compteur { font-size: 0.82rem; color: var(--ardoise-douce); font-weight: 600; margin-bottom: 6px; }
+.quiz-question { font-family: 'Fraunces', serif; font-size: 1.25rem; color: var(--marine); margin: 6px 0 22px; line-height: 1.4; }
+.quiz-options { display: flex; flex-direction: column; gap: 12px; }
+.quiz-option {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; border: 1.5px solid var(--bordure); border-radius: 12px;
+  background: var(--blanc); cursor: pointer; text-align: left; font-size: 0.95rem; color: var(--ardoise);
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.quiz-option:hover:not([disabled]) { border-color: var(--or); transform: translateX(2px); }
+.quiz-option-lettre {
+  width: 26px; height: 26px; border-radius: 50%; background: var(--ivoire); border: 1px solid var(--bordure);
+  display: flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; color: var(--marine);
+  flex-shrink: 0; transition: all 0.25s ease;
+}
+@keyframes quizPulseVert { 0% { box-shadow: 0 0 0 0 rgba(76,154,106,0.5); } 100% { box-shadow: 0 0 0 14px rgba(76,154,106,0); } }
+@keyframes quizPulseRouge { 0% { box-shadow: 0 0 0 0 rgba(179,67,43,0.5); } 100% { box-shadow: 0 0 0 14px rgba(179,67,43,0); } }
+@keyframes quizSecoue { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.quiz-option.bonne-reponse {
+  border-color: var(--vert); background: #EAF6EF; animation: quizPulseVert 0.6s ease-out;
+}
+.quiz-option.bonne-reponse .quiz-option-lettre { background: var(--vert); border-color: var(--vert); color: var(--blanc); }
+.quiz-option.mauvaise-reponse {
+  border-color: var(--rouge); background: #FBECE8; animation: quizPulseRouge 0.6s ease-out, quizSecoue 0.35s ease;
+}
+.quiz-option.mauvaise-reponse .quiz-option-lettre { background: var(--rouge); border-color: var(--rouge); color: var(--blanc); }
+.quiz-option[disabled] { cursor: default; opacity: 0.75; }
+.quiz-option[disabled]:not(.bonne-reponse):not(.mauvaise-reponse) { opacity: 0.5; }
+.quiz-resultat { text-align: center; padding: 20px 0; }
+.quiz-score-cercle {
+  width: 160px; height: 160px; border-radius: 50%; margin: 0 auto 20px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: var(--degrade-marine); color: var(--blanc); box-shadow: var(--ombre-lg);
+}
+.quiz-score-cercle strong { font-size: 2.4rem; font-family: 'Fraunces', serif; line-height: 1; }
+.quiz-score-cercle span { font-size: 0.78rem; opacity: 0.85; margin-top: 4px; }
 
 .bouton-burger {
   display: none;

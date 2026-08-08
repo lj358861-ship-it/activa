@@ -148,7 +148,27 @@ router.get('/evolution', async (req, res) => {
        ORDER BY jour ASC`,
       [jours - 1]
     );
-    res.json({ evolution: rows, jours });
+
+    // La requête ne renvoie que les jours où il y a eu au moins un paiement.
+    // On complète les jours manquants à zéro pour obtenir une série continue
+    // sur toute la période : sans ça, un graphique en ligne avec un seul (ou
+    // très peu de) point(s) réel(s) ne trace rien de visible.
+    const parJour = new Map(rows.map((r) => [
+      (r.jour instanceof Date ? r.jour.toISOString().slice(0, 10) : String(r.jour)),
+      { total_fcfa: Number(r.total_fcfa), nombre: Number(r.nombre) }
+    ]));
+    const evolution = [];
+    const aujourdHui = new Date();
+    aujourdHui.setHours(0, 0, 0, 0);
+    for (let i = jours - 1; i >= 0; i -= 1) {
+      const d = new Date(aujourdHui);
+      d.setDate(d.getDate() - i);
+      const cle = d.toISOString().slice(0, 10);
+      const donneesJour = parJour.get(cle) || { total_fcfa: 0, nombre: 0 };
+      evolution.push({ jour: cle, total_fcfa: donneesJour.total_fcfa, nombre: donneesJour.nombre });
+    }
+
+    res.json({ evolution, jours });
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
 });
 

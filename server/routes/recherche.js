@@ -32,8 +32,12 @@ router.get('/demandes/:id/candidats', verifierToken, autoriserRoles('employeur',
     }
 
     const [candidats] = await pool.query(
-      `SELECT id, code_candidat, nom_complet, ville, niveau_etude, domaine, parcours_pedagogique, parcours_professionnel, atouts, cv_path, photo_path, diplome_path
-       FROM candidats WHERE domaine = ?`,
+      `SELECT c.id, c.code_candidat, c.nom_complet, c.ville, c.niveau_etude, c.domaine,
+              c.parcours_pedagogique, c.parcours_professionnel, c.atouts, c.cv_path, c.photo_path, c.diplome_path,
+              qr.score AS score_test, qr.nombre_bonnes_reponses AS bonnes_reponses_test
+       FROM candidats c
+       LEFT JOIN quiz_resultats qr ON qr.candidat_id = c.id
+       WHERE c.domaine = ?`,
       [demande.domaine]
     );
 

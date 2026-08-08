@@ -7,12 +7,31 @@ const { envoyerEmailVerification } = require('../services/email');
 
 const router = express.Router();
 
+// Format RCCM camerounais : alphanumérique, avec séparateurs "/" ou "-"
+// (ex : RC/DLA/2020/B/1234). Champ optionnel, mais s'il est renseigné il
+// doit respecter ce format avant d'être enregistré.
+const REGEX_RCCM = /^[A-Z0-9][A-Z0-9/\-\s]{4,30}[A-Z0-9]$/;
+
+function normaliserRccm(valeur) {
+  if (!valeur) return { rccm: null, erreur: null };
+  const nettoye = String(valeur).trim().toUpperCase();
+  if (!REGEX_RCCM.test(nettoye)) {
+    return { rccm: null, erreur: 'Format du numéro RCCM invalide (ex : RC/DLA/2020/B/1234).' };
+  }
+  return { rccm: nettoye, erreur: null };
+}
+
 // Inscription employeur (compte créé mais non validé -> en attente d'admin)
 router.post('/inscription', async (req, res) => {
-  const { email, mot_de_passe, telephone, nom_societe, secteur, telephone_societe, ville } = req.body;
+  const { email, mot_de_passe, telephone, nom_societe, secteur, telephone_societe, ville, rccm } = req.body;
 
   if (!email || !mot_de_passe || !telephone || !nom_societe || !telephone_societe) {
     return res.status(400).json({ erreur: 'Merci de remplir tous les champs obligatoires.' });
+  }
+
+  const { rccm: rccmValide, erreur: erreurRccm } = normaliserRccm(rccm);
+  if (erreurRccm) {
+    return res.status(400).json({ erreur: erreurRccm });
   }
 
   const connexion = await pool.getConnection();
@@ -35,9 +54,9 @@ router.post('/inscription', async (req, res) => {
     const userId = resultUser.insertId;
 
     await connexion.query(
-      `INSERT INTO employeurs (user_id, nom_societe, secteur, telephone_societe, ville)
-       VALUES (?, ?, ?, ?, ?)`,
-      [userId, nom_societe, secteur || null, telephone_societe, ville || null]
+      `INSERT INTO employeurs (user_id, nom_societe, secteur, telephone_societe, ville, rccm)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [userId, nom_societe, secteur || null, telephone_societe, ville || null, rccmValide]
     );
 
     await connexion.commit();
@@ -143,10 +162,12 @@ router.get('/propositions', verifierToken, autoriserRoles('employeur'), async (r
       `SELECT mer.id, mer.statut, mer.score_correspondance, mer.selectionne_le, mer.notifie_le, mer.created_at,
               d.id AS demande_id, d.poste,
               c.id AS candidat_id, c.code_candidat, c.nom_complet, c.ville, c.niveau_etude, c.domaine, c.date_naissance,
-              c.parcours_pedagogique, c.parcours_professionnel, c.atouts, c.photo_path, c.cv_path, c.diplome_path
+              c.parcours_pedagogique, c.parcours_professionnel, c.atouts, c.photo_path, c.cv_path, c.diplome_path,
+              qr.score AS score_test, qr.nombre_bonnes_reponses AS bonnes_reponses_test
        FROM mises_en_relation mer
        JOIN demandes d ON d.id = mer.demande_id
        JOIN candidats c ON c.id = mer.candidat_id
+       LEFT JOIN quiz_resultats qr ON qr.candidat_id = c.id
        WHERE d.employeur_id = ?
        ORDER BY d.id DESC, mer.score_correspondance DESC`,
       [empRows[0].id]

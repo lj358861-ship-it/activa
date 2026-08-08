@@ -184,6 +184,27 @@ async function initialiserBaseDeDonnees() {
     console.log('[init-db] Colonnes de vérification email ajoutées à users (comptes existants marqués comme vérifiés).');
   }
 
+  // Migration : refonte du test d'aptitude (30 questions/300 pts + réponses
+  // bonus carrière). La table quiz_resultats est créée par schema.sql
+  // ci-dessus si elle n'existait pas encore ; ce bloc ajoute les nouvelles
+  // colonnes (total_questions/domaine_teste/reponses_bonus) sur les bases où
+  // la table existait déjà avant cette évolution, sans toucher aux résultats
+  // déjà enregistrés.
+  const [colonnesQuiz] = await connection.query(
+    `SELECT COUNT(*) AS n FROM information_schema.columns
+     WHERE table_schema = ? AND table_name = 'quiz_resultats' AND column_name = 'reponses_bonus'`,
+    [database]
+  );
+  if (colonnesQuiz[0].n === 0) {
+    await connection.query(
+      `ALTER TABLE quiz_resultats
+       ADD COLUMN total_questions INT DEFAULT 30 AFTER nombre_bonnes_reponses,
+       ADD COLUMN domaine_teste VARCHAR(150) NULL AFTER total_questions,
+       ADD COLUMN reponses_bonus JSON NULL AFTER reponses`
+    );
+    console.log('[init-db] Colonnes total_questions/domaine_teste/reponses_bonus ajoutées à quiz_resultats.');
+  }
+
   // Créer le compte admin par défaut s'il n'existe pas
   const [rows] = await connection.query('SELECT id FROM users WHERE role = "admin" LIMIT 1');
   if (rows.length === 0) {

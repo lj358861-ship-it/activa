@@ -102,6 +102,8 @@
 
       <button type="submit" class="btn btn-or btn-large btn-bloc" id="btnEnvoyer">Créer mon compte entreprise</button>
     </form>
+
+    <div class="carte-formulaire" id="panneauVerifEmployeur" style="display:none; max-width:460px;"></div>
   </div>
 </section>
 
@@ -117,11 +119,27 @@ document.getElementById('formEmployeur').addEventListener('submit', async (e) =>
   bouton.textContent = 'Envoi en cours...';
 
   const donnees = Object.fromEntries(new FormData(e.target).entries());
+  const emailSaisi = donnees.email;
 
   try {
     await appelApi('/employeurs/inscription', { method: 'POST', corpsJson: donnees });
-    afficherMessage(zone, 'Compte créé ! Il sera activé après vérification par l\'APRJ. Tu recevras un accès une fois validé.', 'succes');
-    e.target.reset();
+
+    document.getElementById('formEmployeur').style.display = 'none';
+    const panneau = document.getElementById('panneauVerifEmployeur');
+    panneau.style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    construireEcranCode({
+      conteneur: panneau,
+      email: emailSaisi,
+      onVerifie: async (code) => {
+        await appelApi('/auth/verifier-email', { method: 'POST', corpsJson: { email: emailSaisi, code } });
+        panneau.innerHTML = '<p style="text-align:center; font-weight:700; color:var(--vert);">✅ Email vérifié ! Ton compte sera activé après vérification par l\'APRJ — tu recevras un accès une fois validé.</p>';
+      },
+      onRenvoyer: async () => {
+        await appelApi('/auth/renvoyer-code', { method: 'POST', corpsJson: { email: emailSaisi } });
+      }
+    });
   } catch (err) {
     afficherMessage(zone, err.message, 'erreur');
   } finally {

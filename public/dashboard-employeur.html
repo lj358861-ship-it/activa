@@ -171,6 +171,7 @@ exigerRole('employeur');
 const boutonOngletsToggle = document.getElementById('ongletsToggle');
 const conteneurOnglets = document.getElementById('onglets');
 const libelleOngletsToggle = document.getElementById('ongletsToggleLabel');
+initClocheNotifications('/employeurs');
 
 boutonOngletsToggle.addEventListener('click', () => {
   const ouvert = conteneurOnglets.classList.toggle('onglets-ouvert');

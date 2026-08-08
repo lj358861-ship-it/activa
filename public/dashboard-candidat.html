@@ -65,13 +65,20 @@
     </p>
   </div>
 
+  <div class="carte" id="carteQuiz" style="display:none; margin-bottom:18px;"></div>
+
   <button class="onglets-toggle" id="ongletsToggle" type="button" aria-expanded="false">
     <span id="ongletsToggleLabel">Mon profil</span>
     <span class="onglets-toggle-icone">▾</span>
   </button>
   <div class="onglets" id="onglets">
     <div class="onglet actif" data-onglet="profil">Mon profil</div>
+    <div class="onglet" data-onglet="candidatures">Mes candidatures</div>
     <div class="onglet" data-onglet="opportunites">Mes opportunités</div>
+  </div>
+
+  <div id="vueCandidatures" style="display:none;">
+    <div id="listeCandidatures"></div>
   </div>
 
   <div id="vueProfil">
@@ -165,7 +172,9 @@ document.querySelectorAll('.onglet').forEach((o) => {
     boutonOngletsToggle.setAttribute('aria-expanded', 'false');
     const cible = o.dataset.onglet;
     document.getElementById('vueProfil').style.display = cible === 'profil' ? 'block' : 'none';
+    document.getElementById('vueCandidatures').style.display = cible === 'candidatures' ? 'block' : 'none';
     document.getElementById('vueOpportunites').style.display = cible === 'opportunites' ? 'block' : 'none';
+    if (cible === 'candidatures') chargerCandidatures();
     if (cible === 'opportunites') chargerOpportunites();
   });
 });
@@ -198,6 +207,86 @@ async function chargerProfil() {
   }
 }
 chargerProfil();
+initClocheNotifications('/candidats');
+afficherBanniereQuiz();
+
+async function afficherBanniereQuiz() {
+  const carte = document.getElementById('carteQuiz');
+  try {
+    const donnees = await appelApi('/candidats/quiz');
+    carte.style.display = 'block';
+    if (donnees.deja_complete) {
+      carte.style.background = '#EAF6EF';
+      carte.style.border = '1px solid #bfe3cd';
+      carte.innerHTML = `<p style="margin:0;">✅ <strong>Test d'aptitude terminé</strong> — ton score : <strong>${donnees.resultat.score}/200</strong>. <a href="/quiz-candidat.html">Voir le détail</a></p>`;
+    } else {
+      carte.style.background = '#fff8e6';
+      carte.style.border = '1px solid #e8c874';
+      carte.innerHTML = `<p style="margin:0;">📝 <strong>Test d'aptitude professionnelle non complété.</strong> 15 questions rapides, ça ne prend que quelques minutes. <a href="/quiz-candidat.html" class="btn btn-or" style="margin-left:8px; padding:6px 16px; font-size:0.85rem;">Commencer le test</a></p>`;
+    }
+  } catch (err) { /* silencieux */ }
+}
+
+const LABELS_STATUT_CANDIDATURE = {
+  propose: 'Proposé', selectionne: 'Sélectionné', notifie: 'Entretien confirmé',
+  rejete: 'Dossier non retenu', annule: 'Candidature annulée'
+};
+const ETAPES_STEPPER = ['propose', 'selectionne', 'notifie'];
+
+function construireStepper(statut) {
+  const estArretee = statut === 'rejete' || statut === 'annule';
+  const indexActuel = ETAPES_STEPPER.indexOf(statut);
+  return `
+    <div class="stepper">
+      ${ETAPES_STEPPER.map((etape, i) => {
+        let classes = 'stepper-etape';
+        if (estArretee) classes += i === 0 ? ' franchie' : '';
+        else if (i < indexActuel) classes += ' franchie';
+        else if (i === indexActuel) classes += ' courante';
+        if (estArretee && i === ETAPES_STEPPER.length - 1) classes += ' rejetee';
+        return `
+          <div class="${classes}">
+            <div class="stepper-point">${estArretee && i === ETAPES_STEPPER.length - 1 ? '✕' : (i < indexActuel || (i === indexActuel && !estArretee) ? '✓' : i + 1)}</div>
+            <div class="stepper-label">${LABELS_STATUT_CANDIDATURE[etape]}</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+    ${estArretee ? `<p style="text-align:center; color:var(--rouge); font-weight:600; font-size:0.85rem; margin-top:10px;">${LABELS_STATUT_CANDIDATURE[statut]}</p>` : ''}
+  `;
+}
+
+async function chargerCandidatures() {
+  const conteneur = document.getElementById('listeCandidatures');
+  conteneur.innerHTML = '<p>Chargement...</p>';
+  try {
+    const { candidatures } = await appelApi('/candidats/candidatures');
+    if (!candidatures.length) {
+      conteneur.innerHTML = '<p>Aucune candidature pour le moment. Dès qu\'une entreprise s\'intéresse à ton profil, le suivi apparaîtra ici.</p>';
+      return;
+    }
+    conteneur.innerHTML = candidatures.map((c) => `
+      <div class="candidature-carte">
+        <div class="candidature-entete">
+          <div>
+            <h3>${c.poste}</h3>
+            <p>${c.nom_societe}${c.employeur_ville ? ` — ${c.employeur_ville}` : ''}</p>
+          </div>
+          <span class="etiquette">${new Date(c.created_at).toLocaleDateString('fr-FR')}</span>
+        </div>
+        ${construireStepper(c.statut)}
+        ${c.entretien_date ? `
+          <div class="candidature-detail">
+            📅 Entretien : <strong>${new Date(c.entretien_date).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })}</strong>
+            ${c.entretien_lieu ? ` — ${c.entretien_lieu}` : ''}
+          </div>
+        ` : ''}
+      </div>
+    `).join('');
+  } catch (err) {
+    conteneur.innerHTML = `<div class="message message-erreur">${err.message}</div>`;
+  }
+}
 
 document.getElementById('photo').addEventListener('change', (e) => {
   const fichier = e.target.files[0];

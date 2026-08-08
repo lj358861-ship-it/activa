@@ -71,6 +71,8 @@
       </div>
       <button type="submit" class="btn btn-or btn-large btn-bloc" id="btnEnvoyer">Se connecter</button>
     </form>
+
+    <div class="carte-formulaire" id="panneauVerifConnexion" style="display:none; max-width:440px;"></div>
   </div>
 </section>
 
@@ -78,6 +80,19 @@
 
 <script src="/js/commun.js"></script>
 <script>
+function redirigerSelonRole(resultat) {
+  enregistrerSession(resultat.token, resultat.role, resultat.email);
+  if (resultat.role === 'admin') {
+    window.location.href = '/dashboard-admin.html';
+  } else if (resultat.role === 'employeur') {
+    window.location.href = '/dashboard-employeur.html';
+  } else if (resultat.role === 'candidat') {
+    window.location.href = '/dashboard-candidat.html';
+  } else {
+    window.location.href = '/';
+  }
+}
+
 document.getElementById('formConnexion').addEventListener('submit', async (e) => {
   e.preventDefault();
   const zone = document.getElementById('zoneMessage');
@@ -89,17 +104,29 @@ document.getElementById('formConnexion').addEventListener('submit', async (e) =>
 
   try {
     const resultat = await appelApi('/auth/connexion', { method: 'POST', corpsJson: donnees });
-    enregistrerSession(resultat.token, resultat.role, resultat.email);
-    if (resultat.role === 'admin') {
-      window.location.href = '/dashboard-admin.html';
-    } else if (resultat.role === 'employeur') {
-      window.location.href = '/dashboard-employeur.html';
-    } else if (resultat.role === 'candidat') {
-      window.location.href = '/dashboard-candidat.html';
-    } else {
-      window.location.href = '/';
-    }
+    redirigerSelonRole(resultat);
   } catch (err) {
+    if (err.code === 'EMAIL_NON_VERIFIE') {
+      document.getElementById('formConnexion').style.display = 'none';
+      const panneau = document.getElementById('panneauVerifConnexion');
+      panneau.style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      construireEcranCode({
+        conteneur: panneau,
+        email: donnees.email,
+        onVerifie: async (code) => {
+          await appelApi('/auth/verifier-email', { method: 'POST', corpsJson: { email: donnees.email, code } });
+          const resultat = await appelApi('/auth/connexion', { method: 'POST', corpsJson: donnees });
+          panneau.innerHTML = '<p style="text-align:center; font-weight:700; color:var(--vert);">✅ Email vérifié !</p>';
+          setTimeout(() => redirigerSelonRole(resultat), 700);
+        },
+        onRenvoyer: async () => {
+          await appelApi('/auth/renvoyer-code', { method: 'POST', corpsJson: { email: donnees.email } });
+        }
+      });
+      return;
+    }
     afficherMessage(zone, err.message, 'erreur');
     bouton.disabled = false;
     bouton.textContent = 'Se connecter';

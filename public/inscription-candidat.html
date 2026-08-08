@@ -163,6 +163,8 @@
 
       <button type="submit" class="btn btn-or btn-large btn-bloc" id="btnEnvoyer">Envoyer mon profil</button>
     </form>
+
+    <div class="carte-formulaire" id="panneauVerifCandidat" style="display:none; max-width:460px;"></div>
   </div>
 </section>
 
@@ -178,18 +180,35 @@ document.getElementById('formCandidat').addEventListener('submit', async (e) => 
   bouton.textContent = 'Envoi en cours...';
 
   const donnees = new FormData(e.target);
+  const emailSaisi = document.getElementById('email').value.trim();
+  const motDePasseSaisi = document.getElementById('mot_de_passe').value;
 
   try {
     const reponse = await fetch('/api/candidats/inscription', { method: 'POST', body: donnees });
     const resultat = await reponse.json();
     if (!reponse.ok) throw new Error(resultat.erreur || 'Erreur lors de l\'inscription.');
 
-    const messageId = resultat.code_candidat
-      ? ` Ton identifiant candidat est <strong>${resultat.code_candidat}</strong> — garde-le, il permet à l'APRJ de retrouver rapidement ton dossier.`
-      : '';
-    afficherMessage(zone, 'Ton profil a été enregistré avec succès. L\'Association A.P.R.J. a été notifiée. Tu peux être contacté(e) prochainement pour la suite du parcours.' + messageId, 'succes');
-    e.target.reset();
+    document.getElementById('formCandidat').style.display = 'none';
+    const panneau = document.getElementById('panneauVerifCandidat');
+    panneau.style.display = 'block';
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    construireEcranCode({
+      conteneur: panneau,
+      email: emailSaisi,
+      sousTitre: `Ton identifiant candidat est <strong>${resultat.code_candidat || ''}</strong> — garde-le précieusement. Un code à 7 caractères a aussi été envoyé à <strong>${emailSaisi}</strong> pour confirmer ton adresse.`,
+      onVerifie: async (code) => {
+        await appelApi('/auth/verifier-email', { method: 'POST', corpsJson: { email: emailSaisi, code } });
+        // Connexion automatique juste après la vérification, pour enchaîner directement sur le quiz d'aptitude.
+        const connexionResultat = await appelApi('/auth/connexion', { method: 'POST', corpsJson: { email: emailSaisi, mot_de_passe: motDePasseSaisi } });
+        enregistrerSession(connexionResultat.token, connexionResultat.role, connexionResultat.email);
+        panneau.innerHTML = '<p style="text-align:center; font-weight:700; color:var(--vert);">✅ Email vérifié ! Direction ton test d\'aptitude...</p>';
+        setTimeout(() => { window.location.href = '/quiz-candidat.html'; }, 900);
+      },
+      onRenvoyer: async () => {
+        await appelApi('/auth/renvoyer-code', { method: 'POST', corpsJson: { email: emailSaisi } });
+      }
+    });
   } catch (err) {
     afficherMessage(zone, err.message, 'erreur');
   } finally {

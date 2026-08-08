@@ -157,6 +157,23 @@ CREATE TABLE IF NOT EXISTS notifications (
   FOREIGN KEY (candidat_id) REFERENCES candidats(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
+-- Résultat du test d'aptitude professionnelle (une tentative par candidat).
+-- 30 questions QCM (15 générales + 15 propres au domaine du candidat) notées
+-- sur 300 points, + 5 réponses bonus (texte libre, non notées) sur les
+-- objectifs de carrière, affichées dans la fiche du candidat.
+CREATE TABLE IF NOT EXISTS quiz_resultats (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  candidat_id INT NOT NULL UNIQUE,
+  score INT DEFAULT 0,
+  nombre_bonnes_reponses INT DEFAULT 0,
+  total_questions INT DEFAULT 30,
+  domaine_teste VARCHAR(150) NULL,
+  reponses JSON NULL,
+  reponses_bonus JSON NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (candidat_id) REFERENCES candidats(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 -- Compte admin par défaut (mot de passe à changer immédiatement après déploiement)
 -- Le hash ci-dessous correspond au mot de passe temporaire "ChangeMoi123!"
 -- Génère un nouveau hash avec: node server/scripts/hash-password.js

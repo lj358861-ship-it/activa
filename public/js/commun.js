@@ -42,13 +42,171 @@ async function appelApi(chemin, options = {}) {
   const reponse = await fetch(`${API}${chemin}`, config);
   const donnees = await reponse.json().catch(() => ({}));
   if (!reponse.ok) {
-    throw new Error(donnees.erreur || 'Une erreur est survenue.');
+    const erreur = new Error(donnees.erreur || 'Une erreur est survenue.');
+    if (donnees.code) erreur.code = donnees.code;
+    throw erreur;
   }
   return donnees;
 }
 
 function afficherMessage(conteneur, texte, type = 'erreur') {
   conteneur.innerHTML = `<div class="message message-${type}">${texte}</div>`;
+}
+
+/* ===== Écran de vérification par code (7 caractères, ex: B99E76X) =====
+   Insère dans "conteneur" un mini-formulaire à cases séparées avec renvoi
+   de code. Appelle onVerifie(code) quand les 7 cases sont remplies ; celui-ci
+   doit renvoyer une Promise qui rejette avec un message d'erreur en cas d'échec. */
+function construireEcranCode({ conteneur, email, onVerifie, onRenvoyer, sousTitre }) {
+  const LONGUEUR = 7;
+  conteneur.innerHTML = `
+    <div class="verif-icone">📧</div>
+    <p style="text-align:center; margin:0 0 4px; font-weight:700; color:var(--marine);">Vérifie ton adresse email</p>
+    <p style="text-align:center; font-size:0.88rem; color:var(--ardoise-douce); margin:0 0 4px;">
+      ${sousTitre || `Un code à 7 caractères a été envoyé à <strong>${email}</strong>. Saisis-le ci-dessous.`}
+    </p>
+    <div class="verif-code-groupe" id="verifCodeGroupe">
+      ${Array.from({ length: LONGUEUR }).map((_, i) => `<input type="text" maxlength="1" inputmode="text" autocomplete="off" data-index="${i}">`).join('')}
+    </div>
+    <div id="verifCodeMessage"></div>
+    <p style="text-align:center; font-size:0.85rem; margin-top:10px;">
+      Rien reçu ? <a href="#" id="verifRenvoyerLien">Renvoyer le code</a>
+    </p>
+  `;
+  const inputs = [...conteneur.querySelectorAll('.verif-code-groupe input')];
+  const zoneMessage = conteneur.querySelector('#verifCodeMessage');
+  const lienRenvoyer = conteneur.querySelector('#verifRenvoyerLien');
+
+  function codeComplet() { return inputs.map((i) => i.value).join(''); }
+
+  async function tenterVerification() {
+    const code = codeComplet();
+    if (code.length < LONGUEUR) return;
+    inputs.forEach((i) => (i.disabled = true));
+    try {
+      await onVerifie(code);
+    } catch (err) {
+      afficherMessage(zoneMessage, err.message, 'erreur');
+      inputs.forEach((i) => { i.disabled = false; i.value = ''; });
+      inputs[0].focus();
+    }
+  }
+
+  inputs.forEach((input, idx) => {
+    input.addEventListener('input', () => {
+      input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (input.value && idx < LONGUEUR - 1) inputs[idx + 1].focus();
+      if (codeComplet().length === LONGUEUR) tenterVerification();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !input.value && idx > 0) inputs[idx - 1].focus();
+    });
+    input.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const texte = (e.clipboardData.getData('text') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, LONGUEUR);
+      texte.split('').forEach((car, i) => { if (inputs[i]) inputs[i].value = car; });
+      if (texte.length === LONGUEUR) tenterVerification(); else inputs[Math.min(texte.length, LONGUEUR - 1)].focus();
+    });
+  });
+  inputs[0].focus();
+
+  lienRenvoyer.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (lienRenvoyer.dataset.enCours) return;
+    lienRenvoyer.dataset.enCours = '1';
+    const texteOriginal = lienRenvoyer.textContent;
+    lienRenvoyer.textContent = 'Envoi...';
+    try {
+      await onRenvoyer();
+      afficherMessage(zoneMessage, 'Un nouveau code a été envoyé.', 'succes');
+    } catch (err) {
+      afficherMessage(zoneMessage, err.message, 'erreur');
+    } finally {
+      lienRenvoyer.textContent = texteOriginal;
+      setTimeout(() => { delete lienRenvoyer.dataset.enCours; }, 15000);
+    }
+  });
+}
+
+/* ===== Cloche de notifications (candidat / employeur) =====
+   basePath : '/candidats' ou '/employeurs' — les deux exposent
+   GET {basePath}/notifications et POST {basePath}/notifications/:id/lu.
+   Interroge le serveur toutes les 35s pour un effet "temps réel" léger. */
+function initClocheNotifications(basePath) {
+  const zoneActions = document.getElementById('menuMobile');
+  if (!zoneActions) return;
+
+  const lienDeconnexion = zoneActions.querySelector('a[onclick="deconnecter()"]');
+  const enveloppe = document.createElement('div');
+  enveloppe.className = 'cloche-enveloppe';
+  enveloppe.innerHTML = `
+    <button type="button" class="cloche-bouton" id="clocheBouton" aria-label="Notifications">
+      🔔<span class="cloche-badge" id="clocheBadge" style="display:none;">0</span>
+    </button>
+    <div class="cloche-panneau" id="clochePanneau" style="display:none;">
+      <div class="cloche-panneau-entete">
+        <strong>Notifications</strong>
+        <button type="button" id="clocheToutLu">Tout marquer lu</button>
+      </div>
+      <div class="cloche-panneau-liste" id="clochePanneauListe"><p class="cloche-vide">Chargement...</p></div>
+    </div>
+  `;
+  if (lienDeconnexion) zoneActions.insertBefore(enveloppe, lienDeconnexion);
+  else zoneActions.appendChild(enveloppe);
+
+  const bouton = document.getElementById('clocheBouton');
+  const badge = document.getElementById('clocheBadge');
+  const panneau = document.getElementById('clochePanneau');
+  const liste = document.getElementById('clochePanneauListe');
+  let notificationsCache = [];
+
+  bouton.addEventListener('click', (e) => {
+    e.stopPropagation();
+    panneau.style.display = panneau.style.display === 'none' ? 'block' : 'none';
+  });
+  document.addEventListener('click', (e) => {
+    if (!enveloppe.contains(e.target)) panneau.style.display = 'none';
+  });
+
+  document.getElementById('clocheToutLu').addEventListener('click', async () => {
+    const nonLues = notificationsCache.filter((n) => !n.lu);
+    await Promise.all(nonLues.map((n) => appelApi(`${basePath}/notifications/${n.id}/lu`, { method: 'POST' }).catch(() => {})));
+    rafraichirCloche();
+  });
+
+  function rendreListe() {
+    if (!notificationsCache.length) {
+      liste.innerHTML = '<p class="cloche-vide">Aucune notification pour le moment.</p>';
+      return;
+    }
+    liste.innerHTML = notificationsCache.slice(0, 15).map((n) => `
+      <div class="cloche-item ${n.lu ? '' : 'non-lue'}">
+        <p class="cloche-item-titre">${n.titre}</p>
+        <p class="cloche-item-message">${n.message || ''}</p>
+        <p class="cloche-item-date">${new Date(n.created_at).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+      </div>
+    `).join('');
+  }
+
+  async function rafraichirCloche() {
+    try {
+      const { notifications } = await appelApi(`${basePath}/notifications`);
+      notificationsCache = notifications;
+      const nonLues = notifications.filter((n) => !n.lu).length;
+      if (nonLues > 0) {
+        badge.textContent = nonLues > 9 ? '9+' : nonLues;
+        badge.style.display = 'flex';
+        bouton.classList.add('cloche-agitee');
+        setTimeout(() => bouton.classList.remove('cloche-agitee'), 700);
+      } else {
+        badge.style.display = 'none';
+      }
+      rendreListe();
+    } catch (err) { /* silencieux : ne pas gêner le reste du tableau de bord */ }
+  }
+
+  rafraichirCloche();
+  setInterval(rafraichirCloche, 35000);
 }
 
 /* ===== Menu mobile (burger) : ouverture/fermeture + fermeture auto ===== */

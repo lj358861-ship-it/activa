@@ -152,6 +152,13 @@
         </div>
       </div>
       <div class="champ">
+        <label for="numero_cni">Numéro de la CNI *</label>
+        <input type="text" id="numero_cni" name="numero_cni" placeholder="Ex : 123456789" required style="text-transform:uppercase;">
+        <p style="font-size:0.8rem; color:var(--ardoise-douce); margin-top:6px;">
+          Ce numéro doit être unique : il empêche la création de plusieurs comptes avec la même pièce d'identité.
+        </p>
+      </div>
+      <div class="champ">
         <label for="cni">Carte Nationale d'Identité (CNI) scannée (PDF, JPG, PNG — 5 Mo max) *</label>
         <div class="champ-fichier">
           <input type="file" id="cni" name="cni" accept=".pdf,.jpg,.jpeg,.png" required>

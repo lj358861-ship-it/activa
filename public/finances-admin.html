@@ -67,6 +67,7 @@
     </button>
     <div class="entete-actions" id="menuMobile">
       <nav class="nav-liens"><a href="/dashboard-admin.html">← Retour au tableau de bord</a></nav>
+      <a href="#" class="btn btn-contour-clair" onclick="verrouillerFinances()">🔒 Verrouiller la caisse</a>
       <a href="#" class="btn btn-contour-clair" onclick="deconnecter()">Se déconnecter</a>
     </div>
   </div>
@@ -222,6 +223,13 @@ function afficherContenuFinances() {
   document.getElementById('ecranPin').style.display = 'none';
   document.getElementById('contenuFinances').style.display = 'block';
   chargerToutesLesDonnees();
+}
+
+// Verrouille immédiatement la caisse : efface le jeton et réaffiche l'écran PIN,
+// sans quitter la page. Utile si l'admin s'absente de son poste un instant.
+function verrouillerFinances() {
+  oublierJetonFinances();
+  afficherEcranPin();
 }
 
 function majPointsPin() {
@@ -465,15 +473,17 @@ function afficherTransactions(transactions, estFiltre) {
   }
   conteneur.innerHTML = `
       <table class="liste">
-        <thead><tr><th>N° transaction</th><th>Date & heure</th><th>Candidat</th><th>Poste</th><th>Entreprise</th><th>Dossier</th><th>Formation</th><th>Total</th><th>Validé par</th></tr></thead>
+        <thead><tr><th>N° transaction</th><th>Date validation</th><th>Candidat</th><th>Poste</th><th>Entreprise</th><th>RDV paiement</th><th>Entretien</th><th>Dossier</th><th>Formation</th><th>Total</th><th>Validé par</th></tr></thead>
         <tbody>
           ${transactions.map((t) => `
             <tr>
               <td><span style="font-family:monospace; color:var(--ardoise-douce);">#${t.id}</span></td>
-              <td>${new Date(t.created_at).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'medium' })}</td>
+              <td>${new Date(t.date_validation || t.created_at).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'medium' })}</td>
               <td>${t.candidat_nom || '—'}${t.code_candidat ? `<br><span style="font-size:0.78rem; color:var(--ardoise-douce);">${t.code_candidat}</span>` : ''}</td>
               <td>${t.poste || '—'}</td>
               <td>${t.nom_societe || '—'}</td>
+              <td style="font-size:0.82rem;">${t.rdv_paiement_date ? new Date(t.rdv_paiement_date).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}${t.rdv_paiement_lieu ? `<br><span style="color:var(--ardoise-douce);">${t.rdv_paiement_lieu}</span>` : ''}</td>
+              <td style="font-size:0.82rem;">${t.entretien_date ? new Date(t.entretien_date).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}${t.entretien_lieu ? `<br><span style="color:var(--ardoise-douce);">${t.entretien_lieu}</span>` : ''}</td>
               <td>${formaterFcfa(t.montant_dossier_fcfa)}</td>
               <td>${formaterFcfa(t.montant_formation_fcfa)}</td>
               <td><strong>${formaterFcfa(t.montant_total_fcfa)}</strong></td>
@@ -523,17 +533,12 @@ async function confirmerReinitialisation() {
   }
 }
 
-/* ===== Démarrage : ré-utilise le jeton finances s'il est encore valide (même onglet, session en cours) ===== */
-(async function demarrer() {
-  if (obtenirJetonFinances()) {
-    try {
-      await appelApiFinances('/resume');
-      afficherContenuFinances();
-      return;
-    } catch (e) { /* jeton expiré : on retombe sur l'écran PIN ci-dessous */ }
-  }
-  afficherEcranPin();
-})();
+/* ===== Démarrage : le code PIN est redemandé SYSTÉMATIQUEMENT à chaque ouverture
+   de la page caisse, même si un jeton de session est encore valide côté serveur.
+   Le jeton n'est réutilisé que pour les appels API pendant que la page reste
+   ouverte — dès qu'on la quitte (ou qu'on la recharge), il faut retaper le PIN. */
+oublierJetonFinances();
+afficherEcranPin();
 </script>
 <!-- Modal de confirmation — réinitialisation des données de test -->
 <div id="modalReinitialisation" style="display:none; position:fixed; inset:0; background:rgba(11,20,38,0.65); z-index:9999; align-items:center; justify-content:center; padding:20px;">

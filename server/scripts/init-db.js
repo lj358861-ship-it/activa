@@ -196,6 +196,90 @@ async function initialiserBaseDeDonnees() {
     console.log('[init-db] Colonnes de vérification email ajoutées à users (comptes existants marqués comme vérifiés).');
   }
 
+  // Migration : filet de sécurité — crée la table transactions (caisse) si le
+  // schema.sql n'a pas suffi à la créer (ex : base déjà initialisée avant l'ajout
+  // de cette table). Idempotent, comme le reste : ne fait rien si elle existe déjà.
+  const [tableTransactions] = await connection.query(
+    `SELECT COUNT(*) AS n FROM information_schema.tables
+     WHERE table_schema = ? AND table_name = 'transactions'`,
+    [database]
+  );
+  if (tableTransactions[0].n === 0) {
+    await connection.query(
+      `CREATE TABLE transactions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        mise_en_relation_id INT NULL,
+        candidat_id INT NULL,
+        code_candidat VARCHAR(10) NULL,
+        candidat_nom VARCHAR(150) NOT NULL,
+        nom_societe VARCHAR(150) NOT NULL,
+        poste VARCHAR(150) NOT NULL,
+        montant_dossier_fcfa INT NOT NULL DEFAULT 0,
+        montant_formation_fcfa INT NOT NULL DEFAULT 0,
+        montant_total_fcfa INT NOT NULL DEFAULT 0,
+        rdv_paiement_date DATETIME NULL,
+        rdv_paiement_lieu VARCHAR(255) NULL,
+        entretien_date DATETIME NULL,
+        entretien_lieu VARCHAR(255) NULL,
+        date_validation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        valide_par INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (mise_en_relation_id) REFERENCES mises_en_relation(id) ON DELETE SET NULL,
+        FOREIGN KEY (candidat_id) REFERENCES candidats(id) ON DELETE SET NULL,
+        FOREIGN KEY (valide_par) REFERENCES users(id) ON DELETE SET NULL
+      ) ENGINE=InnoDB`
+    );
+    console.log('[init-db] Table transactions (caisse) créée.');
+  } else {
+    // Si la table existait déjà (créée avant cet ajout), on complète les colonnes
+    // de détails manquantes une par une, sans toucher aux données existantes.
+    const colonnesAAjouter = [
+      ['rdv_paiement_date', 'DATETIME NULL'],
+      ['rdv_paiement_lieu', 'VARCHAR(255) NULL'],
+      ['entretien_date', 'DATETIME NULL'],
+      ['entretien_lieu', 'VARCHAR(255) NULL'],
+      ['date_validation', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP']
+    ];
+    for (const [nom, definition] of colonnesAAjouter) {
+      const [existe] = await connection.query(
+        `SELECT COUNT(*) AS n FROM information_schema.columns
+         WHERE table_schema = ? AND table_name = 'transactions' AND column_name = ?`,
+        [database, nom]
+      );
+      if (existe[0].n === 0) {
+        await connection.query(`ALTER TABLE transactions ADD COLUMN ${nom} ${definition}`);
+        console.log(`[init-db] Colonne ${nom} ajoutée à la table transactions.`);
+      }
+    }
+  }
+
+  // Migration : ajoute le numéro de CNI (texte, unique) aux candidats. Le fichier
+  // scanné (cni_path) existait déjà, mais rien n'empêchait un candidat de créer
+  // deux comptes avec deux emails différents en réutilisant la même pièce
+  // d'identité — la contrainte UNIQUE sur ce nouveau champ bloque ce doublon.
+  const [colonneNumeroCni] = await connection.query(
+    `SELECT COUNT(*) AS n FROM information_schema.columns
+     WHERE table_schema = ? AND table_name = 'candidats' AND column_name = 'numero_cni'`,
+    [database]
+  );
+  if (colonneNumeroCni[0].n === 0) {
+    await connection.query('ALTER TABLE candidats ADD COLUMN numero_cni VARCHAR(30) NULL UNIQUE AFTER atouts');
+    console.log('[init-db] Colonne numero_cni (unique) ajoutée à la table candidats.');
+  }
+
+  // Migration : lot de questions générales (1 à 3) assigné à chaque candidat au
+  // premier chargement de son quiz, pour que deux candidats ne tombent pas
+  // systématiquement sur les 15 mêmes questions "situations de travail".
+  const [colonneLotQuiz] = await connection.query(
+    `SELECT COUNT(*) AS n FROM information_schema.columns
+     WHERE table_schema = ? AND table_name = 'candidats' AND column_name = 'quiz_lot_general'`,
+    [database]
+  );
+  if (colonneLotQuiz[0].n === 0) {
+    await connection.query('ALTER TABLE candidats ADD COLUMN quiz_lot_general TINYINT NULL AFTER numero_cni');
+    console.log('[init-db] Colonne quiz_lot_general ajoutée à la table candidats.');
+  }
+
   // Créer le compte admin par défaut s'il n'existe pas
   const [rows] = await connection.query('SELECT id FROM users WHERE role = "admin" LIMIT 1');
   if (rows.length === 0) {

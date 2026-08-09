@@ -11,7 +11,7 @@ const { genererCodeVerification, DUREE_VALIDITE_MINUTES } = require('../services
 const { envoyerEmailVerification } = require('../services/email');
 const {
   questionsPubliques, questionsBonusPubliques, toutesLesQuestions,
-  corriger, formaterReponsesBonus
+  corriger, formaterReponsesBonus, tirerLotGeneralAleatoire
 } = require('../data/quiz-aptitude');
 
 const router = express.Router();
@@ -29,14 +29,18 @@ router.post(
     const {
       email, mot_de_passe, telephone,
       nom_complet, date_naissance, ville, niveau_etude, domaine,
-      parcours_pedagogique, parcours_professionnel, atouts
+      parcours_pedagogique, parcours_professionnel, atouts, numero_cni
     } = req.body;
 
     if (
       !email || !mot_de_passe || !telephone || !nom_complet || !date_naissance || !ville ||
-      !niveau_etude || !domaine || !parcours_pedagogique || !atouts
+      !niveau_etude || !domaine || !parcours_pedagogique || !atouts || !numero_cni
     ) {
       return res.status(400).json({ erreur: 'Merci de remplir tous les champs obligatoires (seul le parcours professionnel est optionnel).' });
+    }
+    const numeroCniNettoye = String(numero_cni).trim().toUpperCase().replace(/\s+/g, '');
+    if (numeroCniNettoye.length < 5) {
+      return res.status(400).json({ erreur: 'Merci de vérifier le numéro de CNI saisi.' });
     }
 
     // Vérifie que la date de naissance est plausible : pas dans le futur, et un âge
@@ -71,6 +75,11 @@ router.post(
         await connexion.rollback();
         return res.status(409).json({ erreur: 'Un compte existe déjà avec cet email.' });
       }
+      const [cniExistante] = await connexion.query('SELECT id FROM candidats WHERE numero_cni = ?', [numeroCniNettoye]);
+      if (cniExistante.length > 0) {
+        await connexion.rollback();
+        return res.status(409).json({ erreur: 'Un compte existe déjà avec ce numéro de CNI. Un(e) même candidat(e) ne peut créer qu\'un seul compte.' });
+      }
 
       const hash = await bcrypt.hash(mot_de_passe, 10);
       const codeVerification = genererCodeVerification();
@@ -89,9 +98,9 @@ router.post(
 
       const [resultCandidat] = await connexion.query(
         `INSERT INTO candidats
-         (user_id, code_candidat, nom_complet, date_naissance, ville, niveau_etude, domaine, parcours_pedagogique, parcours_professionnel, atouts, cv_path, photo_path, diplome_path, cni_path)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [userId, codeCandidat, nom_complet, date_naissance, ville || null, niveau_etude, domaine, parcours_pedagogique || null, parcours_professionnel || null, atouts || null, cvPath, photoPath, diplomePath, cniPath]
+         (user_id, code_candidat, nom_complet, date_naissance, ville, niveau_etude, domaine, parcours_pedagogique, parcours_professionnel, atouts, numero_cni, cv_path, photo_path, diplome_path, cni_path)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [userId, codeCandidat, nom_complet, date_naissance, ville || null, niveau_etude, domaine, parcours_pedagogique || null, parcours_professionnel || null, atouts || null, numeroCniNettoye, cvPath, photoPath, diplomePath, cniPath]
       );
       const candidatId = resultCandidat.insertId;
 
@@ -229,7 +238,7 @@ router.post('/notifications/:id/lu', verifierToken, autoriserRoles('candidat'), 
 // Récupère les questions (sans les bonnes réponses) + indique si déjà passé.
 router.get('/quiz', verifierToken, autoriserRoles('candidat'), async (req, res) => {
   try {
-    const [candRows] = await pool.query('SELECT id, domaine FROM candidats WHERE user_id = ?', [req.utilisateur.id]);
+    const [candRows] = await pool.query('SELECT id, domaine, quiz_lot_general FROM candidats WHERE user_id = ?', [req.utilisateur.id]);
     if (!candRows.length) return res.status(404).json({ erreur: 'Profil candidat introuvable.' });
 
     const [resultatExistant] = await pool.query(
@@ -239,9 +248,20 @@ router.get('/quiz', verifierToken, autoriserRoles('candidat'), async (req, res) 
     if (resultatExistant.length) {
       return res.json({ deja_complete: true, resultat: resultatExistant[0] });
     }
+
+    // Assigne une fois pour toutes le lot de questions générales (1 à 3) au
+    // candidat, pour que deux candidats ne tombent pas systématiquement sur
+    // les 15 mêmes questions "situations de travail" (limite le bachotage
+    // entre connaissances).
+    let lotGeneral = candRows[0].quiz_lot_general;
+    if (!lotGeneral) {
+      lotGeneral = tirerLotGeneralAleatoire();
+      await pool.query('UPDATE candidats SET quiz_lot_general = ? WHERE id = ?', [lotGeneral, candRows[0].id]);
+    }
+
     res.json({
       deja_complete: false,
-      questions: questionsPubliques(candRows[0].domaine),
+      questions: questionsPubliques(candRows[0].domaine, lotGeneral),
       questions_bonus: questionsBonusPubliques()
     });
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
@@ -251,11 +271,11 @@ router.get('/quiz', verifierToken, autoriserRoles('candidat'), async (req, res) 
 // sans jamais exposer la banque complète des bonnes réponses au client.
 router.post('/quiz/verifier', verifierToken, autoriserRoles('candidat'), async (req, res) => {
   try {
-    const [candRows] = await pool.query('SELECT domaine FROM candidats WHERE user_id = ?', [req.utilisateur.id]);
+    const [candRows] = await pool.query('SELECT domaine, quiz_lot_general FROM candidats WHERE user_id = ?', [req.utilisateur.id]);
     if (!candRows.length) return res.status(404).json({ erreur: 'Profil candidat introuvable.' });
 
     const { id, choix } = req.body;
-    const question = toutesLesQuestions(candRows[0].domaine).find((q) => q.id === id);
+    const question = toutesLesQuestions(candRows[0].domaine, candRows[0].quiz_lot_general).find((q) => q.id === id);
     if (!question) return res.status(400).json({ erreur: 'Question inconnue.' });
     res.json({ correct: choix === question.correcte, correcte: question.correcte });
   } catch (e) { console.error(e); res.status(500).json({ erreur: 'Erreur serveur.' }); }
@@ -266,10 +286,11 @@ router.post('/quiz/verifier', verifierToken, autoriserRoles('candidat'), async (
 // tentative possible.
 router.post('/quiz', verifierToken, autoriserRoles('candidat'), async (req, res) => {
   try {
-    const [candRows] = await pool.query('SELECT id, domaine FROM candidats WHERE user_id = ?', [req.utilisateur.id]);
+    const [candRows] = await pool.query('SELECT id, domaine, quiz_lot_general FROM candidats WHERE user_id = ?', [req.utilisateur.id]);
     if (!candRows.length) return res.status(404).json({ erreur: 'Profil candidat introuvable.' });
     const candidatId = candRows[0].id;
     const domaine = candRows[0].domaine;
+    const lotGeneral = candRows[0].quiz_lot_general;
 
     const [existant] = await pool.query('SELECT id FROM quiz_resultats WHERE candidat_id = ?', [candidatId]);
     if (existant.length) {
@@ -277,12 +298,12 @@ router.post('/quiz', verifierToken, autoriserRoles('candidat'), async (req, res)
     }
 
     const { reponses, reponses_bonus } = req.body;
-    const questionsAttendues = toutesLesQuestions(domaine).length;
+    const questionsAttendues = toutesLesQuestions(domaine, lotGeneral).length;
     if (!Array.isArray(reponses) || reponses.length !== questionsAttendues) {
       return res.status(400).json({ erreur: 'Merci de répondre à toutes les questions.' });
     }
 
-    const { score, bonnes, total, detail } = corriger(reponses, domaine);
+    const { score, bonnes, total, detail } = corriger(reponses, domaine, lotGeneral);
     const bonusFormate = formaterReponsesBonus(reponses_bonus);
 
     await pool.query(

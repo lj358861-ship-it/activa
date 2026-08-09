@@ -494,6 +494,12 @@ router.get('/propositions', async (req, res) => {
 
 // Liste des profils sélectionnés par un employeur (+ rendez-vous confirmés, dossiers
 // incomplets ou rendez-vous annulés) — tout ce qui n'est plus au stade "proposé".
+// Pipeline de suivi affiché à l'admin (candidats sélectionnés, RDV paiement en
+// attente, notifiés, rejetés, annulés). Une fois un dossier "notifie" (paiement
+// validé + créneau d'entretien envoyé), il ne reste visible ici que 24h — passé
+// ce délai il est retiré de cette liste de suivi actif pour ne pas l'encombrer.
+// Le paiement lui-même reste consultable pour toujours dans la caisse finance
+// (table `transactions`, totalement indépendante et jamais purgée).
 router.get('/selections', async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -508,7 +514,8 @@ router.get('/selections', async (req, res) => {
        JOIN employeurs e ON e.id = d.employeur_id
        JOIN candidats c ON c.id = mer.candidat_id
        JOIN users u ON u.id = c.user_id
-       WHERE mer.statut IN ('selectionne', 'paiement_propose', 'notifie', 'rejete', 'annule')
+       WHERE mer.statut IN ('selectionne', 'paiement_propose', 'rejete', 'annule')
+          OR (mer.statut = 'notifie' AND mer.notifie_le >= DATE_SUB(NOW(), INTERVAL 24 HOUR))
        ORDER BY mer.selectionne_le DESC`
     );
     res.json({ selections: rows });
@@ -674,8 +681,9 @@ router.post('/mises-en-relation/:id/valider-paiement', async (req, res) => {
     await pool.query(
       `INSERT INTO transactions
        (mise_en_relation_id, candidat_id, code_candidat, candidat_nom, nom_societe, poste,
-        montant_dossier_fcfa, montant_formation_fcfa, montant_total_fcfa, valide_par)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        montant_dossier_fcfa, montant_formation_fcfa, montant_total_fcfa,
+        rdv_paiement_date, rdv_paiement_lieu, entretien_date, entretien_lieu, valide_par)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         sel.id,
         sel.candidat_id,
@@ -686,6 +694,10 @@ router.post('/mises-en-relation/:id/valider-paiement', async (req, res) => {
         FRAIS_DOSSIER_FCFA,
         FRAIS_FORMATION_ENTRETIEN_FCFA,
         FRAIS_DOSSIER_FCFA + FRAIS_FORMATION_ENTRETIEN_FCFA,
+        sel.rdv_paiement_date || null,
+        sel.rdv_paiement_lieu || null,
+        sel.entretien_date || null,
+        sel.entretien_lieu || null,
         req.utilisateur.id
       ]
     );

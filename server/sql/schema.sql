@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS candidats (
   parcours_pedagogique TEXT,
   parcours_professionnel TEXT,
   atouts TEXT,
+  numero_cni VARCHAR(30) NULL UNIQUE,
+  quiz_lot_general TINYINT NULL,
   cv_path VARCHAR(255),
   photo_path VARCHAR(255),
   whatsapp_envoye BOOLEAN DEFAULT FALSE,
@@ -140,6 +142,35 @@ CREATE TABLE IF NOT EXISTS contenu_hero (
   ordre INT DEFAULT 0,
   actif BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- Caisse : paiements confirmés (frais de dossier + frais de formation à l'entretien).
+-- On duplique volontairement ici les infos clés (candidat, poste, société, dates du
+-- parcours) au lieu de tout récupérer par jointure sur mises_en_relation/candidats :
+-- ces données doivent rester consultables dans la caisse même après suppression du
+-- compte candidat ou purge de sa fiche côté admin (rétention 24h) — la caisse est
+-- l'historique comptable définitif, indépendant du reste de la base.
+CREATE TABLE IF NOT EXISTS transactions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  mise_en_relation_id INT NULL,
+  candidat_id INT NULL,
+  code_candidat VARCHAR(10) NULL,
+  candidat_nom VARCHAR(150) NOT NULL,
+  nom_societe VARCHAR(150) NOT NULL,
+  poste VARCHAR(150) NOT NULL,
+  montant_dossier_fcfa INT NOT NULL DEFAULT 0,
+  montant_formation_fcfa INT NOT NULL DEFAULT 0,
+  montant_total_fcfa INT NOT NULL DEFAULT 0,
+  rdv_paiement_date DATETIME NULL,
+  rdv_paiement_lieu VARCHAR(255) NULL,
+  entretien_date DATETIME NULL,
+  entretien_lieu VARCHAR(255) NULL,
+  date_validation TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  valide_par INT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (mise_en_relation_id) REFERENCES mises_en_relation(id) ON DELETE SET NULL,
+  FOREIGN KEY (candidat_id) REFERENCES candidats(id) ON DELETE SET NULL,
+  FOREIGN KEY (valide_par) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- Notifications envoyées aux candidats et employeurs (propositions de mise en relation, etc.)
